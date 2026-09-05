@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { ConfirmModal, Toast } from "./ui";
 import { priceWithSellerFee, type FeeConfiguration } from "@/lib/fee";
+import { formatWibDateTime } from "@/lib/time";
 type Category = {
   id: string;
   title: string;
@@ -60,12 +61,17 @@ export function ProductTable({
           .filter(Boolean)
           .some((x) => String(p.product_code).toLowerCase().startsWith(x)),
     );
-    const text = visible
-      .map(
-        (p: any) =>
-          `${p.product_code} - ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
-      )
-      .join("\n");
+    const prices = visible.map(
+      (p: any) =>
+        `${p.product_code} - Rp ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
+    );
+    const text = [
+      `KATEGORI: ${c.title}`,
+      `LEVEL MEMBER: ${levelName}`,
+      `UPDATE: ${formatWibDateTime(new Date())}`,
+      "",
+      ...prices,
+    ].join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
     a.download = `${c.title.replace(/[^a-z0-9]/gi, "-")}.txt`;
@@ -203,7 +209,7 @@ export function ProductTable({
           onClose={() => setPreview(null)}
         >
           <div className="card-body">
-            <BroadcastPreview category={preview} feeConfiguration={feeConfiguration} />
+            <BroadcastPreview category={preview} />
           </div>
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setPreview(null)}>
@@ -221,36 +227,13 @@ export function ProductTable({
     </>
   );
 }
-function BroadcastPreview({ category, feeConfiguration }: { category: Category; feeConfiguration: FeeConfiguration }) {
-  const prefixes = (category.excludedPrefixes || "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  const products = category.products
-    .filter(
-      (p: any) =>
-        !category.prefixFilterEnabled ||
-        !prefixes.some((x) =>
-          String(p.product_code).toLowerCase().startsWith(x),
-        ),
-    )
-    .slice(0, 8);
+function BroadcastPreview({ category }: { category: Category }) {
   return (
-    <div className="preview">
-      <span className="tag" style={{ background: "#ffffff28", color: "#fff" }}>
-        PRICE UPDATE
-      </span>
-      <h3>{category.title}</h3>
-      <p style={{ opacity: 0.8, marginTop: 4 }}>Diperbarui sesuai waktu pengiriman</p>
-      <div className="product-list">
-        {products.map((p: any) => (
-          <div key={p.product_id}>
-            <span>{p.product_code}</span>
-            <b>Rp {new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}</b>
-          </div>
-        ))}
-        {!products.length && <div>Tidak ada produk untuk ditampilkan</div>}
-      </div>
+    <div className="broadcast-image-preview">
+      <img
+        alt={`Preview broadcast ${category.title}`}
+        src={`/api/broadcast/preview?categoryId=${encodeURIComponent(category.id)}&at=${Date.now()}`}
+      />
     </div>
   );
 }

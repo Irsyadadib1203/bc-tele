@@ -1,5 +1,6 @@
 import { db as prisma } from "@/lib/mysql";
 import { ConfirmedForm } from "@/components/ui";
+import { formatWibDateTime } from "@/lib/time";
 export default async function Dashboard() {
   const settings = await prisma.settings.findUnique({ where: { id: 1 } });
   const level = settings?.selectedLevelId
@@ -126,7 +127,7 @@ export default async function Dashboard() {
                   <div>
                     <b>{log.message}</b>
                     <div className="muted">
-                      {log.createdAt.toLocaleString("id-ID")}
+                      {formatWibDateTime(log.createdAt)}
                     </div>
                   </div>
                 </div>

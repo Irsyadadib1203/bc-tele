@@ -1,4 +1,5 @@
 import { db as prisma } from "@/lib/mysql";
+import { formatWibDateTime } from "@/lib/time";
 export default async function Activity() {
   const logs = await prisma.activityLog.findMany({
     orderBy: { createdAt: "desc" },
@@ -42,7 +43,7 @@ export default async function Activity() {
                   </div>
                 </div>
                 <span className="log-time">
-                  {log.createdAt.toLocaleString("id-ID")}
+                  {formatWibDateTime(log.createdAt)}
                 </span>
               </div>
             ))

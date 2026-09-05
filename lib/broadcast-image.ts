@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { formatWibDateTime } from "@/lib/time";
 
 type Product = { product_code: string; product_price: number };
 
@@ -66,19 +67,7 @@ function productLabel(value: string, columnWidth: number) {
 }
 
 function updatedAtLabel(date: Date) {
-  const parts = new Intl.DateTimeFormat("id-ID", {
-    timeZone: "Asia/Jakarta",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-
-  return `Diperbarui: ${value("day")} ${value("month")} ${value("year")}, ${value("hour")}.${value("minute")} WIB`;
+  return `Diperbarui: ${formatWibDateTime(date)}`;
 }
 
 /** Creates one compact PNG containing every product in the category, laid

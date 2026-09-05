@@ -25,6 +25,54 @@ function splitMessages(lines: string[], heading: string) {
 function matchesExcludedPrefix(product: Product, prefixes: string[]) {
   return prefixes.some((prefix) => product.product_code.toLowerCase().startsWith(prefix));
 }
+
+function includedProducts(category: any) {
+  const prefixes = String(category.excludedPrefixes ?? "")
+    .split(",")
+    .map((prefix) => prefix.trim().toLowerCase())
+    .filter(Boolean);
+  return (category.products as Product[]).filter(
+    (product) =>
+      !category.prefixFilterEnabled ||
+      !matchesExcludedPrefix(product, prefixes),
+  );
+}
+
+async function productsWithMemberPrice(category: any) {
+  const products = includedProducts(category);
+  if (!products.length) {
+    throw new Error("Tidak ada produk setelah filter prefix diterapkan.");
+  }
+  const level =
+    typeof category.levelId === "string"
+      ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
+      : null;
+  return products.map((product) => ({
+    ...product,
+    product_price: priceWithSellerFee(
+      product.product_price,
+      level ?? {},
+      product,
+    ),
+  }));
+}
+
+/** Used by both Telegram and the catalogue preview so they always render
+ * the same filtered products, member prices, styling, and WIB timestamp. */
+export async function makeCategoryBroadcastImage(
+  category: any,
+  settings: any,
+  updatedAt = new Date(),
+) {
+  const products = await productsWithMemberPrice(category);
+  return makeBroadcastImage(
+    String(category.title),
+    products,
+    String(settings.primaryColor ?? "#5B5BD6"),
+    String(settings.accentColor ?? "#A78BFA"),
+    updatedAt,
+  );
+}
 async function telegramRequest(url: string, init: RequestInit) {
   const response = await fetch(url, init);
   const payload = (await response.json()) as TelegramResponse;
@@ -32,32 +80,28 @@ async function telegramRequest(url: string, init: RequestInit) {
 }
 
 async function sendCategory(category: any, settings: any, format: BroadcastFormat) {
-  const prefixes = String(category.excludedPrefixes ?? "").split(",").map((prefix) => prefix.trim().toLowerCase()).filter(Boolean);
-  const products = (category.products as Product[]).filter((product) => !category.prefixFilterEnabled || !matchesExcludedPrefix(product, prefixes));
-  if (!products.length) throw new Error("Tidak ada produk setelah filter prefix diterapkan.");
-  const level = typeof category.levelId === "string" ? await db.priceLevel.findUnique({ where: { id: category.levelId } }) : null;
-  const productsWithFee = products.map((product) => ({ ...product, product_price: priceWithSellerFee(product.product_price, level ?? {}, product) }));
+  const productsWithFee = await productsWithMemberPrice(category);
   const title = String(category.title);
   const template = format === "text" ? settings.caption : settings.imageCaption;
-  const caption = String(template ?? `<b>${title}</b>\nHarga terbaru tersedia.`).replaceAll("{category}", escapeHtml(title)).replaceAll("{count}", String(products.length));
+  const caption = String(template ?? `<b>${title}</b>\nHarga terbaru tersedia.`).replaceAll("{category}", escapeHtml(title)).replaceAll("{count}", String(productsWithFee.length));
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
 
   if (format === "text") {
     const lines = productsWithFee.map((product) => `${escapeHtml(product.product_code)} Rp. ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`);
     const messages = splitMessages(lines, `${caption}\n`);
     for (const text of messages) await telegramRequest(`${telegramUrl}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: settings.targetChatId, text, parse_mode: "HTML" }) });
-    await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast teks ${title} berhasil dikirim (${products.length} produk)`, meta: { categoryId: category.id } } });
+    await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast teks ${title} berhasil dikirim (${productsWithFee.length} produk)`, meta: { categoryId: category.id } } });
     return title;
   }
 
-  const image = await makeBroadcastImage(title, productsWithFee, String(settings.primaryColor ?? "#5B5BD6"), String(settings.accentColor ?? "#A78BFA"));
+  const image = await makeCategoryBroadcastImage(category, settings);
   const formData = new FormData();
   formData.set("chat_id", settings.targetChatId);
   formData.set("photo", new Blob([image], { type: "image/png" }), `${title}.png`);
   formData.set("caption", caption);
   formData.set("parse_mode", "HTML");
   await telegramRequest(`${telegramUrl}/sendPhoto`, { method: "POST", body: formData });
-  await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast gambar ${title} berhasil dikirim (${products.length} produk, 1 gambar)`, meta: { categoryId: category.id } } });
+  await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast gambar ${title} berhasil dikirim (${productsWithFee.length} produk, 1 gambar)`, meta: { categoryId: category.id } } });
   return title;
 }
 

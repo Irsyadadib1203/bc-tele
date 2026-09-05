@@ -561,6 +561,18 @@ button {
   margin: 23px 0 2px;
   font: 800 21px Manrope;
 }
+.broadcast-image-preview {
+  border-radius: 12px;
+  overflow: auto;
+  background: #f4f4f8;
+  border: 1px solid #e2e2eb;
+}
+.broadcast-image-preview img {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+}
 .product-list {
   background: #fff;
   border-radius: 10px;

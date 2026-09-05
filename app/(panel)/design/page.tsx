@@ -1,7 +1,21 @@
 import { db as prisma } from "@/lib/mysql";
 import { ConfirmedForm } from "@/components/ui";
+import { makeBroadcastImage } from "@/lib/broadcast-image";
 export default async function DesignPage() {
   const s = await prisma.settings.findUnique({ where: { id: 1 } });
+  // Use the production image generator here as well, so this design preview
+  // has the same dimensions, typography, grid, and WIB timestamp as Telegram.
+  const sampleImage = await makeBroadcastImage(
+    "Mobile Legends",
+    [
+      { product_code: "ML86", product_price: 18624 },
+      { product_code: "ML172", product_price: 37248 },
+      { product_code: "ML257", product_price: 55872 },
+    ],
+    s?.primaryColor || "#5B5BD6",
+    s?.accentColor || "#A78BFA",
+  );
+  const sampleImageUrl = `data:image/png;base64,${sampleImage.toString("base64")}`;
   return (
     <main className="main">
       <div className="page-head">
@@ -61,37 +75,8 @@ export default async function DesignPage() {
           <p className="muted">
             Tampilan umum kartu yang akan dikirim ke Telegram.
           </p>
-          <div
-            className="preview"
-            style={{
-              marginTop: 20,
-              background: `linear-gradient(135deg,${s?.primaryColor || "#5B5BD6"},${s?.accentColor || "#A78BFA"})`,
-            }}
-          >
-            <span
-              className="tag"
-              style={{ background: "#ffffff30", color: "#fff" }}
-            >
-              {s?.headerTitle || "PRICE UPDATE"}
-            </span>
-            <h3>Mobile Legends</h3>
-            <p style={{ opacity: 0.85 }}>
-              Tanggal dan waktu pembaruan otomatis
-            </p>
-            <div className="product-list">
-              <div>
-                <span>ML86</span>
-                <b>Rp 18.624</b>
-              </div>
-              <div>
-                <span>ML172</span>
-                <b>Rp 37.248</b>
-              </div>
-              <div>
-                <span>ML257</span>
-                <b>Rp 55.872</b>
-              </div>
-            </div>
+          <div className="broadcast-image-preview" style={{ marginTop: 20 }}>
+            <img alt="Contoh gambar broadcast" src={sampleImageUrl} />
           </div>
         </section>
       </div>
