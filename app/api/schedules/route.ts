@@ -1,4 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db as prisma } from "@/lib/mysql";
 import { currentUserId } from "@/lib/auth";
 export async function POST(req:Request){if(!await currentUserId())return NextResponse.json({error:'Tidak diizinkan'},{status:401});const {action,id,name,time,days,categoryIds,enabled}=await req.json();if(action==='create'){if(!time||!days?.length)return NextResponse.json({error:'Waktu dan hari harus diisi'},{status:400});await prisma.broadcastSchedule.create({data:{name:name||'Jadwal broadcast',time,days:days.join(','),categoryIds:(categoryIds||[]).join(','),enabled:!!enabled}});return NextResponse.json({message:'Jadwal broadcast ditambahkan'})}if(action==='toggle'&&id){await prisma.broadcastSchedule.update({where:{id},data:{enabled:!!enabled}});return NextResponse.json({message:enabled?'Jadwal diaktifkan':'Jadwal dinonaktifkan'})}if(action==='delete'&&id){await prisma.broadcastSchedule.delete({where:{id}});return NextResponse.json({message:'Jadwal dihapus'})}return NextResponse.json({error:'Permintaan tidak valid'},{status:400})}
