@@ -3,16 +3,66 @@ import sharp from "sharp";
 type Product = { product_code: string; product_price: number };
 
 // Telegram requires the combined width and height of a photo to stay below
-// 10,000 px. With a 1,080 px-wide image, 8,800 px leaves a safe margin.
-const TELEGRAM_SAFE_MAX_HEIGHT = 8_800;
+// 10,000 px. We stay far below that by using a multi-column grid instead of
+// a single ever-taller column, so large catalogues stay compact and legible.
+const TELEGRAM_SAFE_MAX_TOTAL = 9_500; // width + height safety ceiling
 const MINIMUM_ROW_HEIGHT = 16;
+const CONTENT_TOP = 260;
+const FOOTER_SPACE = 64;
+const SIDE_PADDING = 50;
+const COLUMN_GAP = 24;
 
-function escapeXml(value: string) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&apos;");
+type LayoutTier = {
+  /** Upper bound (inclusive) on product count for this tier. */
+  maxProducts: number;
+  columns: number;
+  columnWidth: number;
+  rowHeight: number;
+};
+
+// Each tier trades "more columns" for "shorter image" as the catalogue
+// grows, instead of shrinking a single column down to unreadable rows.
+const LAYOUT_TIERS: LayoutTier[] = [
+  { maxProducts: 50, columns: 1, columnWidth: 980, rowHeight: 62 },
+  { maxProducts: 150, columns: 2, columnWidth: 520, rowHeight: 52 },
+  { maxProducts: 300, columns: 3, columnWidth: 380, rowHeight: 42 },
+  { maxProducts: 400, columns: 4, columnWidth: 300, rowHeight: 34 },
+  { maxProducts: 550, columns: 5, columnWidth: 240, rowHeight: 28 },
+];
+
+function pickLayout(count: number): LayoutTier {
+  const tier = LAYOUT_TIERS.find((t) => count <= t.maxProducts);
+  if (!tier) {
+    throw new Error(
+      `Jumlah produk (${count}) melebihi batas 550 untuk satu gambar. ` +
+        "Pecah broadcast ini menjadi beberapa gambar/kategori.",
+    );
+  }
+  return tier;
 }
 
-function productLabel(value: string) {
-  return value.length > 52 ? `${value.slice(0, 51)}…` : value;
+function canvasWidth(tier: LayoutTier) {
+  return (
+    SIDE_PADDING * 2 +
+    tier.columns * tier.columnWidth +
+    COLUMN_GAP * (tier.columns - 1)
+  );
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/** Truncates a label to fit a given column width, scaled from the original
+ * 52-char budget that was tuned for a ~980px-wide single column. */
+function productLabel(value: string, columnWidth: number) {
+  const maxLen = Math.max(10, Math.floor((52 * columnWidth) / 980));
+  return value.length > maxLen ? `${value.slice(0, maxLen - 1)}…` : value;
 }
 
 function updatedAtLabel(date: Date) {
@@ -31,7 +81,9 @@ function updatedAtLabel(date: Date) {
   return `Diperbarui: ${value("day")} ${value("month")} ${value("year")}, ${value("hour")}.${value("minute")} WIB`;
 }
 
-/** Creates one compact PNG containing every product in the category. */
+/** Creates one compact PNG containing every product in the category, laid
+ * out as a multi-column grid so large lists (up to ~550 items) stay
+ * legible instead of turning into one extremely tall, cramped column. */
 export async function makeBroadcastImage(
   title: string,
   products: Product[],
@@ -39,35 +91,48 @@ export async function makeBroadcastImage(
   accent: string,
   updatedAt = new Date(),
 ) {
-  const width = 1080;
-  const contentTop = 260;
-  const footerSpace = 64;
-  const maximumRowHeight = Math.floor(
-    (TELEGRAM_SAFE_MAX_HEIGHT - contentTop - footerSpace) / products.length,
-  );
-  if (maximumRowHeight < MINIMUM_ROW_HEIGHT)
-    throw new Error(
-      "Jumlah produk terlalu banyak untuk satu gambar Telegram.",
-    );
+  if (products.length === 0) {
+    throw new Error("Tidak ada produk untuk dibuatkan gambar.");
+  }
 
-  // Keep the original roomy layout for small catalogues, then compact rows
-  // progressively as the product count rises.
-  const rowHeight = Math.min(62, maximumRowHeight);
+  const tier = pickLayout(products.length);
+  const { columns, columnWidth, rowHeight } = tier;
+  const width = canvasWidth(tier);
+  const rowsPerColumn = Math.ceil(products.length / columns);
+  const height = CONTENT_TOP + rowsPerColumn * rowHeight + FOOTER_SPACE;
+
+  if (rowHeight < MINIMUM_ROW_HEIGHT || width + height > TELEGRAM_SAFE_MAX_TOTAL) {
+    throw new Error(
+      "Jumlah produk terlalu banyak untuk satu gambar Telegram yang rapi.",
+    );
+  }
+
+  const compact = rowHeight < 40;
   const rowCardHeight = Math.max(14, rowHeight - 4);
   const rowFontSize = Math.max(10, Math.min(23, Math.floor(rowHeight * 0.58)));
-  const height = Math.max(650, contentTop + products.length * rowHeight + footerSpace);
-  const rows = products.map((product, index) => {
-    const y = contentTop + index * rowHeight;
-    const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
-    const textBaseline = y + Math.floor(rowCardHeight * 0.7) + 1;
-    const compact = rowHeight < 40;
-    const cardX = compact ? 28 : 50;
-    const cardWidth = compact ? 1024 : 980;
-    const codeX = compact ? 42 : 76;
-    const priceX = compact ? 1016 : 1002;
-    const radius = compact ? 4 : 10;
-    return `<g><rect x="${cardX}" y="${y}" width="${cardWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(productLabel(product.product_code))}</text><text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
-  }).join("");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="238" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">PRICE UPDATE</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${rows}<text x="60" y="${height - 42}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
+  const textPadding = compact ? 8 : 14;
+  const radius = compact ? 4 : 10;
+
+  const rows = products
+    .map((product, index) => {
+      const columnIndex = Math.floor(index / rowsPerColumn);
+      const rowIndexInColumn = index % rowsPerColumn;
+      const columnX = SIDE_PADDING + columnIndex * (columnWidth + COLUMN_GAP);
+      const y = CONTENT_TOP + rowIndexInColumn * rowHeight;
+      const textBaseline = y + Math.floor(rowCardHeight * 0.7) + 1;
+      const codeX = columnX + textPadding;
+      const priceX = columnX + columnWidth - textPadding;
+      const price = new Intl.NumberFormat("id-ID").format(
+        product.product_price || 0,
+      );
+
+      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(productLabel(product.product_code, columnWidth))}</text><text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
+    })
+    .join("");
+
+  const countLabel = `${products.length} produk`;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="238" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">PRICE UPDATE</text><text x="${width - 54}" y="76" text-anchor="end" fill="#ffffff" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600">${escapeXml(countLabel)}</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title, width - 116))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${rows}<text x="60" y="${height - 42}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
+
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
