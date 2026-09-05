@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { db as prisma } from "@/lib/mysql";
+import { db } from "@/lib/mysql";
 import { currentUserId } from "@/lib/auth";
 export async function POST(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const { action, id, name, time, days, categoryIds, enabled } =
+  const { action, id, name, time, days, enabled } =
     await req.json();
   if (action === "create") {
     if (!time || !days?.length)
@@ -12,19 +12,19 @@ export async function POST(req: Request) {
         { error: "Waktu dan hari harus diisi" },
         { status: 400 },
       );
-    await prisma.broadcastSchedule.create({
+    await db.broadcastSchedule.create({
       data: {
         name: name || "Jadwal broadcast",
         time,
         days: days.join(","),
-        categoryIds: (categoryIds || []).join(","),
+        categoryIds: "",
         enabled: !!enabled,
       },
     });
     return NextResponse.json({ message: "Jadwal broadcast ditambahkan" });
   }
   if (action === "toggle" && id) {
-    await prisma.broadcastSchedule.update({
+    await db.broadcastSchedule.update({
       where: { id },
       data: { enabled: !!enabled },
     });
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     });
   }
   if (action === "delete" && id) {
-    await prisma.broadcastSchedule.delete({ where: { id } });
+    await db.broadcastSchedule.delete({ where: { id } });
     return NextResponse.json({ message: "Jadwal dihapus" });
   }
   return NextResponse.json(

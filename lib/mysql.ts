@@ -62,7 +62,14 @@ function parseJson(value: unknown, fallback: unknown[] = []): unknown[] {
 }
 
 function toLevel(row: DbRow | null) {
-  return row ? { ...row, isActive: Boolean(row.isActive) } : null;
+  return row
+    ? {
+        ...row,
+        isActive: Boolean(row.isActive),
+        feeEnabled: Boolean(row.feeEnabled),
+        feeOverrides: parseJson(row.feeOverrides),
+      }
+    : null;
 }
 
 function toCategory(row: DbRow | null) {

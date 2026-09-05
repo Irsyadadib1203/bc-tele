@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { ConfirmModal, Toast } from "./ui";
+import { priceWithSellerFee, type FeeConfiguration } from "@/lib/fee";
 type Category = {
   id: string;
   title: string;
@@ -14,9 +15,11 @@ type Category = {
 export function ProductTable({
   categories,
   levelName,
+  feeConfiguration,
 }: {
   categories: Category[];
   levelName: string;
+  feeConfiguration: FeeConfiguration;
 }) {
   const [list, setList] = useState(categories);
   const [term, setTerm] = useState("");
@@ -55,7 +58,7 @@ export function ProductTable({
     const text = visible
       .map(
         (p: any) =>
-          `${p.product_name} (${p.product_code}) - ${new Intl.NumberFormat("id-ID").format(p.product_price)}`,
+          `${p.product_name} (${p.product_code}) - ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
       )
       .join("\n");
     const a = document.createElement("a");
@@ -189,7 +192,7 @@ export function ProductTable({
           onClose={() => setPreview(null)}
         >
           <div className="card-body">
-            <BroadcastPreview category={preview} />
+            <BroadcastPreview category={preview} feeConfiguration={feeConfiguration} />
           </div>
           <div className="modal-actions">
             <button className="btn btn-ghost" onClick={() => setPreview(null)}>
@@ -207,7 +210,7 @@ export function ProductTable({
     </>
   );
 }
-function BroadcastPreview({ category }: { category: Category }) {
+function BroadcastPreview({ category, feeConfiguration }: { category: Category; feeConfiguration: FeeConfiguration }) {
   const prefixes = (category.excludedPrefixes || "")
     .split(",")
     .map((x) => x.trim().toLowerCase())
@@ -232,7 +235,7 @@ function BroadcastPreview({ category }: { category: Category }) {
         {products.map((p: any) => (
           <div key={p.product_id}>
             <span>{p.product_name}</span>
-            <b>Rp {new Intl.NumberFormat("id-ID").format(p.product_price)}</b>
+            <b>Rp {new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}</b>
           </div>
         ))}
         {!products.length && <div>Tidak ada produk untuk ditampilkan</div>}

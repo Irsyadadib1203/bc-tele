@@ -1,47 +1,7 @@
-import { db as prisma } from "@/lib/mysql";
 import { ScheduleManager } from "@/components/schedule-manager";
-export default async function Schedules() {
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-  const level = settings?.selectedLevelId
-    ? await prisma.priceLevel.findUnique({
-        where: { id: settings.selectedLevelId },
-      })
-    : await prisma.priceLevel.findFirst({ orderBy: { createdAt: "asc" } });
-  const [rawSchedules, rawCategories] = await Promise.all([
-    prisma.broadcastSchedule.findMany({ orderBy: { createdAt: "desc" } }),
-    level
-      ? prisma.productCategory.findMany({
-          where: { levelId: level.id, selected: true },
-          select: { id: true, title: true },
-        })
-      : [],
-  ]);
-  const schedules: any[] = rawSchedules,
-    categories: any[] = rawCategories;
-  return (
-    <main className="main">
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Jadwal Broadcast</h1>
-          <p className="page-subtitle">
-            Kirim kategori pilihan ke Telegram secara otomatis pada waktu
-            tertentu.
-          </p>
-        </div>
-      </div>
-      <ScheduleManager
-        initial={schedules.map((s: any) => ({
-          ...s,
-          createdAt: s.createdAt.toISOString(),
-        }))}
-        categories={categories}
-        masterEnabled={settings?.scheduleEnabled ?? true}
-      />
-      <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>
-        Catatan: aktifkan scheduler server/cron yang memanggil worker broadcast
-        sesuai jadwal pada deployment Anda. Konfigurasi jadwal tersimpan di
-        MySQL.
-      </p>
-    </main>
-  );
+import { db } from "@/lib/mysql";
+
+export default async function SchedulesPage() {
+  const [settings, schedules] = await Promise.all([db.settings.findUnique(), db.broadcastSchedule.findMany()]);
+  return <main className="main"><div className="page-head"><div><h1 className="page-title">Jadwal Broadcast</h1><p className="page-subtitle">Kirim semua kategori yang dipilih secara otomatis pada waktu tertentu.</p></div></div><ScheduleManager initial={schedules} masterEnabled={settings?.scheduleEnabled ?? true} /><p className="muted" style={{ fontSize: 12, marginTop: 14 }}>Jadwal menyimpan waktu dan hari saja. Targetnya selalu semua kategori yang ditandai untuk broadcast pada level aktif.</p></main>;
 }

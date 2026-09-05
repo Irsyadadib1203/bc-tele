@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/auth";
 import { makeBroadcastImage } from "@/lib/broadcast-image";
+import { priceWithSellerFee } from "@/lib/fee";
 import { db } from "@/lib/mysql";
 
 type Product = {
@@ -97,9 +98,19 @@ export async function POST(request: Request) {
       { status: 400 },
     );
 
+  const level =
+    typeof category.levelId === "string"
+      ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
+      : null;
+  const productsWithFee = products.map((product) => ({
+    ...product,
+    product_price: priceWithSellerFee(product.product_price, level ?? {}, product),
+  }));
+
   const title = String(category.title);
+  const captionTemplate = settings.broadcastFormat === "text" ? settings.caption : settings.imageCaption;
   const caption = String(
-    settings.caption ?? `<b>${title}</b>\nHarga terbaru tersedia.`,
+    captionTemplate ?? `<b>${title}</b>\nHarga terbaru tersedia.`,
   )
     .replaceAll("{category}", escapeHtml(title))
     .replaceAll("{count}", String(products.length));
@@ -107,7 +118,7 @@ export async function POST(request: Request) {
 
   try {
     if (settings.broadcastFormat === "text") {
-      const lines = products.map(
+      const lines = productsWithFee.map(
         (product) =>
           `${escapeHtml(product.product_name)} Rp. ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`,
       );
@@ -139,7 +150,7 @@ export async function POST(request: Request) {
 
     const image = makeBroadcastImage(
       title,
-      products,
+      productsWithFee,
       String(settings.primaryColor ?? "#5B5BD6"),
       String(settings.accentColor ?? "#A78BFA"),
     );

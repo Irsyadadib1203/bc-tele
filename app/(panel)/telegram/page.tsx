@@ -1,78 +1,11 @@
-import { db as prisma } from "@/lib/mysql";
+import { db } from "@/lib/mysql";
+
 export default async function TelegramPage() {
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
-  const text = settings?.broadcastFormat === "text";
-  return (
-    <main className="main">
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Kirim Telegram</h1>
-          <p className="page-subtitle">
-            Pilih broadcast berupa gambar katalog atau daftar harga dalam teks.
-          </p>
-        </div>
-      </div>
-      <form
-        action="/api/settings"
-        method="post"
-        className="card"
-        style={{ maxWidth: 800 }}
-      >
-        <div className="card-head">
-          <h2>Format & template broadcast</h2>
-          <span className="tag">HTML Telegram</span>
-        </div>
-        <div className="card-body">
-          <div className="field">
-            Format pengiriman
-            <div className="checkbox-list">
-              <label className="check-pill">
-                <input
-                  type="radio"
-                  name="broadcastFormat"
-                  value="image"
-                  defaultChecked={!text}
-                />{" "}
-                Gambar harga
-              </label>
-              <label className="check-pill">
-                <input
-                  type="radio"
-                  name="broadcastFormat"
-                  value="text"
-                  defaultChecked={text}
-                />{" "}
-                Teks daftar harga
-              </label>
-            </div>
-          </div>
-          <p className="muted">
-            Pada format teks, caption akan berada di atas daftar produk. Gunakan{" "}
-            <b>{"{category}"}</b> untuk nama kategori dan <b>{"{count}"}</b>{" "}
-            untuk jumlah produk. HTML Telegram seperti &lt;b&gt; dan &lt;i&gt;
-            juga didukung.
-          </p>
-          <label className="field">
-            Caption broadcast
-            <textarea
-              name="caption"
-              rows={10}
-              defaultValue={
-                settings?.caption ||
-                "<b>{category} - FFZ STORE</b>\n✅ Speed 1 - 2 detik\n✅ Open 24 jam anti cutoff"
-              }
-            />
-          </label>
-          <div className="hint">
-            Contoh hasil teks: caption Anda, lalu baris seperti{" "}
-            <b>5 Diamonds Rp. 809</b>. Jika daftar sangat panjang, bot otomatis
-            mengirimkannya dalam beberapa pesan.
-          </div>
-        </div>
-        <div className="card-body" style={{ paddingTop: 0 }}>
-          <button className="btn btn-primary">Simpan pengaturan</button>
-        </div>
-      </form>
-    </main>
-  );
+  const settings = await db.settings.findUnique();
+  return <main className="main"><div className="page-head"><div><h1 className="page-title">Kirim Telegram</h1><p className="page-subtitle">Pengaturan broadcast gambar dan teks dipisahkan agar lebih jelas.</p></div></div>
+    <div className="setting-grid">
+      <form action="/api/settings" method="post" className="card setting-card"><h2>Broadcast gambar</h2><p className="muted">Kirim kartu harga PNG. Warna dan desain header dapat diatur di halaman Desain Header.</p><input type="hidden" name="broadcastFormat" value="image" /><label className="field">Caption gambar<textarea name="imageCaption" rows={8} defaultValue={settings?.imageCaption || "<b>{category}</b>\nHarga terbaru tersedia.\nJumlah produk: {count}"} /></label><p className="muted">Gunakan <b>{"{category}"}</b> dan <b>{"{count}"}</b>. Caption akan dikirim bersama gambar PNG.</p><button className="btn btn-primary" style={{ marginTop: 20 }}>Simpan & gunakan format gambar</button></form>
+      <form action="/api/settings" method="post" className="card setting-card"><h2>Broadcast teks</h2><p className="muted">Caption ini muncul sebelum daftar harga. Mendukung HTML Telegram.</p><input type="hidden" name="broadcastFormat" value="text" /><label className="field">Caption broadcast<textarea name="caption" rows={8} defaultValue={settings?.caption || "<b>{category} - FFZ STORE</b>\n✅ Speed 1 - 2 detik\n✅ Open 24 jam anti cutoff"} /></label><p className="muted">Gunakan <b>{"{category}"}</b> untuk kategori dan <b>{"{count}"}</b> untuk jumlah produk.</p><button className="btn btn-primary" style={{ marginTop: 20 }}>Simpan & gunakan format teks</button></form>
+    </div>
+  </main>;
 }

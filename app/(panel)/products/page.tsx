@@ -1,14 +1,14 @@
-import { db as prisma } from "@/lib/mysql";
+import { db } from "@/lib/mysql";
 import { ProductTable } from "@/components/product-table";
 export default async function ProductsPage() {
-  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  const settings = await db.settings.findUnique();
   const level = settings?.selectedLevelId
-    ? await prisma.priceLevel.findUnique({
+    ? await db.priceLevel.findUnique({
         where: { id: settings.selectedLevelId },
       })
-    : await prisma.priceLevel.findFirst({ orderBy: { createdAt: "asc" } });
+    : await db.priceLevel.findFirst();
   const categories: any[] = level
-    ? await prisma.productCategory.findMany({
+    ? await db.productCategory.findMany({
         where: { levelId: level.id },
         orderBy: { title: "asc" },
       })
@@ -30,6 +30,7 @@ export default async function ProductsPage() {
           products: c.products as any[],
         }))}
         levelName={level?.name || "-"}
+        feeConfiguration={level ?? {}}
       />
     </main>
   );

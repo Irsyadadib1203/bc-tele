@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db as prisma } from "@/lib/mysql";
+import { db } from "@/lib/mysql";
 import { currentUserId } from "@/lib/auth";
 export async function POST(req: Request) {
   if (!(await currentUserId()))
@@ -15,6 +15,7 @@ export async function POST(req: Request) {
     "botToken",
     "targetChatId",
     "caption",
+    "imageCaption",
     "broadcastFormat",
     "headerTitle",
     "headerSubtitle",
@@ -30,12 +31,12 @@ export async function POST(req: Request) {
   if ("scheduleEnabled" in data)
     update.scheduleEnabled =
       data.scheduleEnabled === true || data.scheduleEnabled === "true";
-  await prisma.settings.upsert({
+  await db.settings.upsert({
     where: { id: 1 },
     update,
     create: { id: 1, ...update },
   });
-  await prisma.activityLog.create({
+  await db.activityLog.create({
     data: { type: "SETTINGS", message: "Pengaturan broadcaster diperbarui" },
   });
   if (ct.includes("application/json"))
