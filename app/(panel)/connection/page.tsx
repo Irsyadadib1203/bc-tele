@@ -1,3 +1,27 @@
 import { db as prisma } from "@/lib/mysql";
 import { ConnectionSettings } from "@/components/connection-settings";
-export default async function ConnectionPage(){const [settings,levels]=await Promise.all([prisma.settings.findUnique({where:{id:1}}),prisma.priceLevel.findMany({orderBy:{createdAt:'asc'}})]);const level=levels.find(x=>x.id===settings?.selectedLevelId)||levels[0]||null;return <main className="main"><div className="page-head"><div><h1 className="page-title">Koneksi & API Key</h1><p className="page-subtitle">API key tersimpan khusus untuk setiap level harga.</p></div></div><ConnectionSettings level={level} botToken={settings?.botToken||''} targetChatId={settings?.targetChatId||''}/></main>}
+export default async function ConnectionPage() {
+  const [settings, levels] = await Promise.all([
+    prisma.settings.findUnique({ where: { id: 1 } }),
+    prisma.priceLevel.findMany({ orderBy: { createdAt: "asc" } }),
+  ]);
+  const level =
+    levels.find((x) => x.id === settings?.selectedLevelId) || levels[0] || null;
+  return (
+    <main className="main">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Koneksi & API Key</h1>
+          <p className="page-subtitle">
+            API key tersimpan khusus untuk setiap level harga.
+          </p>
+        </div>
+      </div>
+      <ConnectionSettings
+        level={level}
+        botToken={settings?.botToken || ""}
+        targetChatId={settings?.targetChatId || ""}
+      />
+    </main>
+  );
+}

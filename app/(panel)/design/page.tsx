@@ -1,2 +1,103 @@
 import { db as prisma } from "@/lib/mysql";
-export default async function DesignPage(){const s=await prisma.settings.findUnique({where:{id:1}});return <main className="main"><div className="page-head"><div><h1 className="page-title">Warna & Desain Header</h1><p className="page-subtitle">Personalisasi gambar harga yang dikirimkan oleh bot Telegram.</p></div></div><div className="setting-grid"><form action="/api/settings" method="post" className="card setting-card"><h2>Pengaturan header</h2><p className="muted">Perubahan diterapkan pada gambar broadcast berikutnya.</p><label className="field">Judul header<input name="headerTitle" defaultValue={s?.headerTitle}/></label><label className="field">Subjudul header<input name="headerSubtitle" defaultValue={s?.headerSubtitle}/></label><div className="inline-fields"><label className="field">Warna utama<input type="color" name="primaryColor" defaultValue={s?.primaryColor}/></label><label className="field">Warna aksen<input type="color" name="accentColor" defaultValue={s?.accentColor}/></label></div><label className="field">URL gambar/logo (opsional)<input name="headerImageUrl" defaultValue={s?.headerImageUrl||''} placeholder="https://..."/></label><button className="btn btn-primary" style={{marginTop:20}}>Simpan desain</button></form><section className="card setting-card"><h2>Pratinjau gambar</h2><p className="muted">Tampilan umum kartu yang akan dikirim ke Telegram.</p><div className="preview" style={{marginTop:20,background:`linear-gradient(135deg,${s?.primaryColor||'#5B5BD6'},${s?.accentColor||'#A78BFA'})`}}><span className="tag" style={{background:'#ffffff30',color:'#fff'}}>{s?.headerTitle||'PRICE UPDATE'}</span><h3>Mobile Legends</h3><p style={{opacity:.85}}>{s?.headerSubtitle||'Harga terbaru hari ini'}</p><div className="product-list"><div><span>86 Diamonds</span><b>Rp 18.624</b></div><div><span>172 Diamonds</span><b>Rp 37.248</b></div><div><span>257 Diamonds</span><b>Rp 55.872</b></div></div></div></section></div></main>}
+export default async function DesignPage() {
+  const s = await prisma.settings.findUnique({ where: { id: 1 } });
+  return (
+    <main className="main">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Warna & Desain Header</h1>
+          <p className="page-subtitle">
+            Personalisasi gambar harga yang dikirimkan oleh bot Telegram.
+          </p>
+        </div>
+      </div>
+      <div className="setting-grid">
+        <form
+          action="/api/settings"
+          method="post"
+          className="card setting-card"
+        >
+          <h2>Pengaturan header</h2>
+          <p className="muted">
+            Perubahan diterapkan pada gambar broadcast berikutnya.
+          </p>
+          <label className="field">
+            Judul header
+            <input name="headerTitle" defaultValue={s?.headerTitle} />
+          </label>
+          <label className="field">
+            Subjudul header
+            <input name="headerSubtitle" defaultValue={s?.headerSubtitle} />
+          </label>
+          <div className="inline-fields">
+            <label className="field">
+              Warna utama
+              <input
+                type="color"
+                name="primaryColor"
+                defaultValue={s?.primaryColor}
+              />
+            </label>
+            <label className="field">
+              Warna aksen
+              <input
+                type="color"
+                name="accentColor"
+                defaultValue={s?.accentColor}
+              />
+            </label>
+          </div>
+          <label className="field">
+            URL gambar/logo (opsional)
+            <input
+              name="headerImageUrl"
+              defaultValue={s?.headerImageUrl || ""}
+              placeholder="https://..."
+            />
+          </label>
+          <button className="btn btn-primary" style={{ marginTop: 20 }}>
+            Simpan desain
+          </button>
+        </form>
+        <section className="card setting-card">
+          <h2>Pratinjau gambar</h2>
+          <p className="muted">
+            Tampilan umum kartu yang akan dikirim ke Telegram.
+          </p>
+          <div
+            className="preview"
+            style={{
+              marginTop: 20,
+              background: `linear-gradient(135deg,${s?.primaryColor || "#5B5BD6"},${s?.accentColor || "#A78BFA"})`,
+            }}
+          >
+            <span
+              className="tag"
+              style={{ background: "#ffffff30", color: "#fff" }}
+            >
+              {s?.headerTitle || "PRICE UPDATE"}
+            </span>
+            <h3>Mobile Legends</h3>
+            <p style={{ opacity: 0.85 }}>
+              {s?.headerSubtitle || "Harga terbaru hari ini"}
+            </p>
+            <div className="product-list">
+              <div>
+                <span>86 Diamonds</span>
+                <b>Rp 18.624</b>
+              </div>
+              <div>
+                <span>172 Diamonds</span>
+                <b>Rp 37.248</b>
+              </div>
+              <div>
+                <span>257 Diamonds</span>
+                <b>Rp 55.872</b>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}

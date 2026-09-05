@@ -1,4 +1,81 @@
 "use client";
 import { useState } from "react";
-const rows=[['Umum','Rp 0','Harga API + Rp 0'],['Member','Rp 500','Harga API + Rp 500'],['H2H','Rp 1.000','Harga API + Rp 1.000']];
-export default function Fees(){const [matrix,setMatrix]=useState(rows);return <main className="main"><div className="page-head"><div><h1 className="page-title">Fee Seller Matrix</h1><p className="page-subtitle">Tetapkan nominal tambahan harga tiap jenis seller.</p></div><button className="btn btn-primary" onClick={()=>alert('Matriks fee tersimpan di pengaturan bisnis Anda.')}>Simpan perubahan</button></div><section className="card"><div className="card-head"><h2>Matriks harga seller</h2><span className="tag">Nominal Rupiah</span></div><div className="card-body"><p className="muted" style={{marginTop:0}}>Fee berupa nilai Rupiah tetap, bukan persentase dari harga produk.</p><div className="table-wrap"><table className="data-table"><thead><tr><th>Jenis seller</th><th>Fee / markup (Rp)</th><th>Rumus harga jual</th></tr></thead><tbody>{matrix.map((r,i)=><tr key={r[0]}><td><b>{r[0]}</b></td><td><input className="prefix-input" value={r[1]} onChange={e=>setMatrix(x=>x.map((v,n)=>n===i?[v[0],e.target.value,`Harga API + ${e.target.value}`]:v))}/></td><td>{r[2]}</td></tr>)}</tbody></table></div></div></section></main>}
+const rows = [
+  ["Umum", "Rp 0", "Harga API + Rp 0"],
+  ["Member", "Rp 500", "Harga API + Rp 500"],
+  ["H2H", "Rp 1.000", "Harga API + Rp 1.000"],
+];
+export default function Fees() {
+  const [matrix, setMatrix] = useState(rows);
+  return (
+    <main className="main">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Fee Seller Matrix</h1>
+          <p className="page-subtitle">
+            Tetapkan nominal tambahan harga tiap jenis seller.
+          </p>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() =>
+            alert("Matriks fee tersimpan di pengaturan bisnis Anda.")
+          }
+        >
+          Simpan perubahan
+        </button>
+      </div>
+      <section className="card">
+        <div className="card-head">
+          <h2>Matriks harga seller</h2>
+          <span className="tag">Nominal Rupiah</span>
+        </div>
+        <div className="card-body">
+          <p className="muted" style={{ marginTop: 0 }}>
+            Fee berupa nilai Rupiah tetap, bukan persentase dari harga produk.
+          </p>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Jenis seller</th>
+                  <th>Fee / markup (Rp)</th>
+                  <th>Rumus harga jual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.map((r, i) => (
+                  <tr key={r[0]}>
+                    <td>
+                      <b>{r[0]}</b>
+                    </td>
+                    <td>
+                      <input
+                        className="prefix-input"
+                        value={r[1]}
+                        onChange={(e) =>
+                          setMatrix((x) =>
+                            x.map((v, n) =>
+                              n === i
+                                ? [
+                                    v[0],
+                                    e.target.value,
+                                    `Harga API + ${e.target.value}`,
+                                  ]
+                                : v,
+                            ),
+                          )
+                        }
+                      />
+                    </td>
+                    <td>{r[2]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

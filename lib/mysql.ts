@@ -1,33 +1,50 @@
 import { randomUUID } from "crypto";
-import mysql, { type ResultSetHeader, type RowDataPacket } from "mysql2/promise";
+import mysql, {
+  type ResultSetHeader,
+  type RowDataPacket,
+} from "mysql2/promise";
 
 type DbRow = RowDataPacket & Record<string, unknown>;
 type Data = Record<string, unknown>;
 
-const globalForDatabase = globalThis as typeof globalThis & { mysqlPool?: mysql.Pool };
+const globalForDatabase = globalThis as typeof globalThis & {
+  mysqlPool?: mysql.Pool;
+};
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL belum diatur. Salin .env.example menjadi .env lalu isi koneksi MySQL.");
+  throw new Error(
+    "DATABASE_URL belum diatur. Salin .env.example menjadi .env lalu isi koneksi MySQL.",
+  );
 }
 
-export const pool = globalForDatabase.mysqlPool ?? mysql.createPool(databaseUrl);
+export const pool =
+  globalForDatabase.mysqlPool ?? mysql.createPool(databaseUrl);
 
 if (process.env.NODE_ENV !== "production") {
   globalForDatabase.mysqlPool = pool;
 }
 
-async function findOne<T extends DbRow = DbRow>(sql: string, values: unknown[] = []): Promise<T | null> {
+async function findOne<T extends DbRow = DbRow>(
+  sql: string,
+  values: unknown[] = [],
+): Promise<T | null> {
   const [rows] = await pool.query<T[]>(sql, values);
   return rows[0] ?? null;
 }
 
-async function findMany<T extends DbRow = DbRow>(sql: string, values: unknown[] = []): Promise<T[]> {
+async function findMany<T extends DbRow = DbRow>(
+  sql: string,
+  values: unknown[] = [],
+): Promise<T[]> {
   const [rows] = await pool.query<T[]>(sql, values);
   return rows;
 }
 
-async function execute(sql: string, values: unknown[] = []): Promise<ResultSetHeader> {
+async function execute(
+  sql: string,
+  values: unknown[] = [],
+): Promise<ResultSetHeader> {
   const [result] = await pool.execute<ResultSetHeader>(sql, values as any);
   return result;
 }
@@ -101,19 +118,30 @@ function insertStatement(table: string, data: Data) {
 // Application routes validate the values they consume from those rows.
 export const db: any = {
   user: {
-    findUnique: async ({ where: { username, id } }: { where: { username?: string; id?: string } }) =>
-      findOne("SELECT * FROM `User` WHERE " + (username ? "username" : "id") + " = ?", [username ?? id]),
+    findUnique: async ({
+      where: { username, id },
+    }: {
+      where: { username?: string; id?: string };
+    }) =>
+      findOne(
+        "SELECT * FROM `User` WHERE " + (username ? "username" : "id") + " = ?",
+        [username ?? id],
+      ),
   },
 
   settings: {
-    findUnique: async (_args?: unknown) => toSettings(await findOne("SELECT * FROM `Settings` WHERE id = 1")),
+    findUnique: async (_args?: unknown) =>
+      toSettings(await findOne("SELECT * FROM `Settings` WHERE id = 1")),
     upsert: async ({ update, create }: { update: Data; create: Data }) => {
       const exists = await findOne("SELECT id FROM `Settings` WHERE id = 1");
       const data = exists ? update : { id: 1, ...create };
       const fields = updateFields(data);
 
       if (exists && fields) {
-        await execute(`UPDATE \`Settings\` SET ${fields.assignments} WHERE id = 1`, fields.values);
+        await execute(
+          `UPDATE \`Settings\` SET ${fields.assignments} WHERE id = 1`,
+          fields.values,
+        );
       } else if (!exists) {
         const statement = insertStatement("Settings", data);
         await execute(statement.sql, statement.values);
@@ -123,50 +151,117 @@ export const db: any = {
     },
     update: async ({ data }: { data: Data }) => {
       const fields = updateFields(data);
-      if (fields) await execute(`UPDATE \`Settings\` SET ${fields.assignments} WHERE id = 1`, fields.values);
+      if (fields)
+        await execute(
+          `UPDATE \`Settings\` SET ${fields.assignments} WHERE id = 1`,
+          fields.values,
+        );
       return toSettings(await findOne("SELECT * FROM `Settings` WHERE id = 1"));
     },
   },
 
   priceLevel: {
-    findMany: async (_args?: unknown) => (await findMany("SELECT * FROM `PriceLevel` ORDER BY createdAt ASC")).map((row) => toLevel(row)!),
-    findFirst: async (_args?: unknown) => toLevel(await findOne("SELECT * FROM `PriceLevel` ORDER BY createdAt ASC LIMIT 1")),
+    findMany: async (_args?: unknown) =>
+      (await findMany("SELECT * FROM `PriceLevel` ORDER BY createdAt ASC")).map(
+        (row) => toLevel(row)!,
+      ),
+    findFirst: async (_args?: unknown) =>
+      toLevel(
+        await findOne(
+          "SELECT * FROM `PriceLevel` ORDER BY createdAt ASC LIMIT 1",
+        ),
+      ),
     findUnique: async ({ where: { id } }: { where: { id: string } }) =>
       toLevel(await findOne("SELECT * FROM `PriceLevel` WHERE id = ?", [id])),
-    count: async () => Number((await findOne<{ count: number } & DbRow>("SELECT COUNT(*) AS count FROM `PriceLevel`"))?.count ?? 0),
-    create: async ({ data }: { data: { name: string; apiKey?: string | null } }) => {
+    count: async () =>
+      Number(
+        (
+          await findOne<{ count: number } & DbRow>(
+            "SELECT COUNT(*) AS count FROM `PriceLevel`",
+          )
+        )?.count ?? 0,
+      ),
+    create: async ({
+      data,
+    }: {
+      data: { name: string; apiKey?: string | null };
+    }) => {
       const id = randomUUID();
       await execute(
         "INSERT INTO `PriceLevel` (id, name, isActive, apiKey, createdAt) VALUES (?, ?, FALSE, ?, NOW())",
         [id, data.name, data.apiKey ?? null],
       );
-      return toLevel(await findOne("SELECT * FROM `PriceLevel` WHERE id = ?", [id]));
+      return toLevel(
+        await findOne("SELECT * FROM `PriceLevel` WHERE id = ?", [id]),
+      );
     },
-    update: async ({ where: { id }, data }: { where: { id: string }; data: Data }) => {
+    update: async ({
+      where: { id },
+      data,
+    }: {
+      where: { id: string };
+      data: Data;
+    }) => {
       const fields = updateFields(data);
-      if (fields) await execute(`UPDATE \`PriceLevel\` SET ${fields.assignments} WHERE id = ?`, [...fields.values, id]);
-      return toLevel(await findOne("SELECT * FROM `PriceLevel` WHERE id = ?", [id]));
+      if (fields)
+        await execute(
+          `UPDATE \`PriceLevel\` SET ${fields.assignments} WHERE id = ?`,
+          [...fields.values, id],
+        );
+      return toLevel(
+        await findOne("SELECT * FROM `PriceLevel` WHERE id = ?", [id]),
+      );
     },
-    delete: async ({ where: { id } }: { where: { id: string } }) => execute("DELETE FROM `PriceLevel` WHERE id = ?", [id]),
+    delete: async ({ where: { id } }: { where: { id: string } }) =>
+      execute("DELETE FROM `PriceLevel` WHERE id = ?", [id]),
   },
 
   productCategory: {
-    findMany: async ({ where = {}, select }: { where?: Data; select?: Data } = {}) => {
+    findMany: async ({
+      where = {},
+      select,
+    }: { where?: Data; select?: Data } = {}) => {
       const keys = Object.keys(where);
-      const columns = select ? Object.keys(select).map((key) => `\`${key}\``).join(", ") : "*";
-      const predicate = keys.length ? ` WHERE ${keys.map((key) => `\`${key}\` = ?`).join(" AND ")}` : "";
-      const rows = await findMany(`SELECT ${columns} FROM \`ProductCategory\`${predicate} ORDER BY title ASC`, keys.map((key) => where[key]));
+      const columns = select
+        ? Object.keys(select)
+            .map((key) => `\`${key}\``)
+            .join(", ")
+        : "*";
+      const predicate = keys.length
+        ? ` WHERE ${keys.map((key) => `\`${key}\` = ?`).join(" AND ")}`
+        : "";
+      const rows = await findMany(
+        `SELECT ${columns} FROM \`ProductCategory\`${predicate} ORDER BY title ASC`,
+        keys.map((key) => where[key]),
+      );
       return rows.map((row) => toCategory(row)!);
     },
     findUnique: async ({ where: { id } }: { where: { id: string } }) =>
-      toCategory(await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [id])),
-    update: async ({ where: { id }, data }: { where: { id: string }; data: Data }) => {
+      toCategory(
+        await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [id]),
+      ),
+    update: async ({
+      where: { id },
+      data,
+    }: {
+      where: { id: string };
+      data: Data;
+    }) => {
       const fields = updateFields(data);
-      if (fields) await execute(`UPDATE \`ProductCategory\` SET ${fields.assignments} WHERE id = ?`, [...fields.values, id]);
-      return toCategory(await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [id]));
+      if (fields)
+        await execute(
+          `UPDATE \`ProductCategory\` SET ${fields.assignments} WHERE id = ?`,
+          [...fields.values, id],
+        );
+      return toCategory(
+        await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [id]),
+      );
     },
-    deleteMany: async ({ where: { levelId } }: { where: { levelId: string } }) =>
-      execute("DELETE FROM `ProductCategory` WHERE levelId = ?", [levelId]),
+    deleteMany: async ({
+      where: { levelId },
+    }: {
+      where: { levelId: string };
+    }) => execute("DELETE FROM `ProductCategory` WHERE levelId = ?", [levelId]),
     upsert: async ({
       where: { levelId_title },
       update,
@@ -176,53 +271,101 @@ export const db: any = {
       update: Data;
       create: Data;
     }) => {
-      const existing = await findOne<{ id: string } & DbRow>("SELECT id FROM `ProductCategory` WHERE levelId = ? AND title = ?", [
-        levelId_title.levelId,
-        levelId_title.title,
-      ]);
+      const existing = await findOne<{ id: string } & DbRow>(
+        "SELECT id FROM `ProductCategory` WHERE levelId = ? AND title = ?",
+        [levelId_title.levelId, levelId_title.title],
+      );
 
       if (existing) {
         const fields = updateFields(update);
-        if (fields) await execute(`UPDATE \`ProductCategory\` SET ${fields.assignments} WHERE id = ?`, [...fields.values, existing.id]);
-        return toCategory(await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [existing.id]));
+        if (fields)
+          await execute(
+            `UPDATE \`ProductCategory\` SET ${fields.assignments} WHERE id = ?`,
+            [...fields.values, existing.id],
+          );
+        return toCategory(
+          await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [
+            existing.id,
+          ]),
+        );
       }
 
       const id = randomUUID();
       const statement = insertStatement("ProductCategory", { id, ...create });
       await execute(statement.sql, statement.values);
-      return toCategory(await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [id]));
+      return toCategory(
+        await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [id]),
+      );
     },
   },
 
   broadcastSchedule: {
-    findMany: async (_args?: unknown) => (await findMany("SELECT * FROM `BroadcastSchedule` ORDER BY createdAt DESC")).map((row) => toSchedule(row)!),
+    findMany: async (_args?: unknown) =>
+      (
+        await findMany(
+          "SELECT * FROM `BroadcastSchedule` ORDER BY createdAt DESC",
+        )
+      ).map((row) => toSchedule(row)!),
     create: async ({ data }: { data: Data }) => {
       const id = randomUUID();
       await execute(
         "INSERT INTO `BroadcastSchedule` (id, name, enabled, days, time, categoryIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, NOW())",
-        [id, data.name, Boolean(data.enabled), data.days, data.time, data.categoryIds],
+        [
+          id,
+          data.name,
+          Boolean(data.enabled),
+          data.days,
+          data.time,
+          data.categoryIds,
+        ],
       );
-      return toSchedule(await findOne("SELECT * FROM `BroadcastSchedule` WHERE id = ?", [id]));
+      return toSchedule(
+        await findOne("SELECT * FROM `BroadcastSchedule` WHERE id = ?", [id]),
+      );
     },
-    update: async ({ where: { id }, data }: { where: { id: string }; data: Data }) => {
+    update: async ({
+      where: { id },
+      data,
+    }: {
+      where: { id: string };
+      data: Data;
+    }) => {
       const fields = updateFields(data);
-      if (fields) await execute(`UPDATE \`BroadcastSchedule\` SET ${fields.assignments} WHERE id = ?`, [...fields.values, id]);
-      return toSchedule(await findOne("SELECT * FROM `BroadcastSchedule` WHERE id = ?", [id]));
+      if (fields)
+        await execute(
+          `UPDATE \`BroadcastSchedule\` SET ${fields.assignments} WHERE id = ?`,
+          [...fields.values, id],
+        );
+      return toSchedule(
+        await findOne("SELECT * FROM `BroadcastSchedule` WHERE id = ?", [id]),
+      );
     },
-    delete: async ({ where: { id } }: { where: { id: string } }) => execute("DELETE FROM `BroadcastSchedule` WHERE id = ?", [id]),
+    delete: async ({ where: { id } }: { where: { id: string } }) =>
+      execute("DELETE FROM `BroadcastSchedule` WHERE id = ?", [id]),
   },
 
   activityLog: {
-    findMany: async ({ take = 100 }: { take?: number; orderBy?: unknown } = {}) =>
-      findMany("SELECT * FROM `ActivityLog` ORDER BY createdAt DESC LIMIT ?", [take]),
-    create: async ({ data }: { data: { type: string; message: string; meta?: unknown } }) => {
+    findMany: async ({
+      take = 100,
+    }: { take?: number; orderBy?: unknown } = {}) =>
+      findMany("SELECT * FROM `ActivityLog` ORDER BY createdAt DESC LIMIT ?", [
+        take,
+      ]),
+    create: async ({
+      data,
+    }: {
+      data: { type: string; message: string; meta?: unknown };
+    }) => {
       const id = randomUUID();
-      await execute("INSERT INTO `ActivityLog` (id, type, message, meta, createdAt) VALUES (?, ?, ?, ?, NOW())", [
-        id,
-        data.type,
-        data.message,
-        data.meta === undefined ? null : JSON.stringify(data.meta),
-      ]);
+      await execute(
+        "INSERT INTO `ActivityLog` (id, type, message, meta, createdAt) VALUES (?, ?, ?, ?, NOW())",
+        [
+          id,
+          data.type,
+          data.message,
+          data.meta === undefined ? null : JSON.stringify(data.meta),
+        ],
+      );
     },
   },
 };
