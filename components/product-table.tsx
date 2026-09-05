@@ -25,25 +25,30 @@ export function ProductTable({
   const [term, setTerm] = useState("");
   const [preview, setPreview] = useState<Category | null>(null);
   const [note, setNote] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState<{ title: string; message: string; run: () => void } | null>(null);
   const filtered = useMemo(
     () =>
       list.filter((c) => c.title.toLowerCase().includes(term.toLowerCase())),
     [list, term],
   );
   async function save(id: string, changes: Partial<Category>) {
-    const r = await fetch("/api/categories", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, ...changes }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      setNote(d.error || "Gagal menyimpan");
-      return;
+    try {
+      const r = await fetch("/api/categories", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...changes }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setFailed(true);
+        setNote(d.error || "Gagal menyimpan pengaturan kategori");
+        return;
+      }
+      setList((xs) => xs.map((x) => (x.id === id ? { ...x, ...changes } : x)));
+      setFailed(false);
+      setNote(d.message || "Pengaturan kategori disimpan");
+      setTimeout(() => setNote(""), 2200);
+    } catch {
+      setFailed(true);
+      setNote("Tidak dapat terhubung ke server");
     }
-    setList((xs) => xs.map((x) => (x.id === id ? { ...x, ...changes } : x)));
-    setNote("Pengaturan kategori disimpan");
-    setTimeout(() => setNote(""), 1800);
   }
   function download(c: Category) {
     const visible = c.products.filter(
@@ -66,16 +71,21 @@ export function ProductTable({
     a.download = `${c.title.replace(/[^a-z0-9]/gi, "-")}.txt`;
     a.click();
     URL.revokeObjectURL(a.href);
+    setFailed(false);
+    setNote(`File daftar harga ${c.title} berhasil diunduh`);
+    setTimeout(() => setNote(""), 2200);
   }
-  async function broadcast(c: Category) {
-    const r = await fetch("/api/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categoryId: c.id }),
-    });
-    const d = await r.json();
-    setNote(r.ok ? d.message : d.error || "Broadcast gagal");
-    setTimeout(() => setNote(""), 3000);
+  async function broadcast(c: Category, format: "image" | "text" = "image") {
+    try {
+      const r = await fetch("/api/broadcast", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoryId: c.id, format }) });
+      const d = await r.json().catch(() => ({}));
+      setFailed(!r.ok);
+      setNote(r.ok ? d.message || "Broadcast berhasil dikirim" : d.error || "Broadcast gagal");
+      setTimeout(() => setNote(""), 3500);
+    } catch {
+      setFailed(true);
+      setNote("Tidak dapat terhubung ke server");
+    }
   }
   return (
     <>
@@ -122,7 +132,7 @@ export function ProductTable({
                           type="checkbox"
                           checked={c.selected}
                           onChange={(e) =>
-                            save(c.id, { selected: e.target.checked })
+                            setPending({ title: "Konfirmasi kategori broadcast", message: `${e.target.checked ? "Masukkan" : "Keluarkan"} kategori ${c.title} ${e.target.checked ? "ke" : "dari"} daftar broadcast?`, run: () => save(c.id, { selected: e.target.checked }) })
                           }
                         />
                       </td>
@@ -138,20 +148,14 @@ export function ProductTable({
                           <button
                             className={`switch ${c.prefixFilterEnabled ? "on" : ""}`}
                             aria-label="Aktifkan filter prefix"
-                            onClick={() =>
-                              save(c.id, {
-                                prefixFilterEnabled: !c.prefixFilterEnabled,
-                              })
-                            }
+                            onClick={() => setPending({ title: "Konfirmasi filter prefix", message: `${c.prefixFilterEnabled ? "Nonaktifkan" : "Aktifkan"} filter prefix untuk ${c.title}?`, run: () => save(c.id, { prefixFilterEnabled: !c.prefixFilterEnabled }) })}
                           />
                           <input
                             className="prefix-input"
                             disabled={!c.prefixFilterEnabled}
                             defaultValue={c.excludedPrefixes || ""}
                             placeholder="ffm, ffmx"
-                            onBlur={(e) =>
-                              save(c.id, { excludedPrefixes: e.target.value })
-                            }
+                            onBlur={(e) => e.target.value !== (c.excludedPrefixes || "") && setPending({ title: "Konfirmasi daftar prefix", message: `Simpan perubahan prefix yang dikecualikan untuk ${c.title}?`, run: () => save(c.id, { excludedPrefixes: e.target.value }) })}
                           />
                         </div>
                       </td>
@@ -165,13 +169,19 @@ export function ProductTable({
                           </button>
                           <button
                             className="mini-btn send"
-                            onClick={() => broadcast(c)}
+                            onClick={() => setPending({ title: "Konfirmasi broadcast gambar", message: `Kirim gambar daftar harga kategori ${c.title} ke Telegram sekarang?`, run: () => broadcast(c, "image") })}
                           >
-                            BC
+                            BC Gambar
+                          </button>
+                          <button
+                            className="mini-btn send"
+                            onClick={() => setPending({ title: "Konfirmasi broadcast teks", message: `Kirim teks daftar harga kategori ${c.title} ke Telegram sekarang?`, run: () => broadcast(c, "text") })}
+                          >
+                            BC Teks
                           </button>
                           <button
                             className="mini-btn"
-                            onClick={() => download(c)}
+                            onClick={() => setPending({ title: "Konfirmasi unduhan", message: `Unduh daftar harga ${c.title} dalam format TXT?`, run: () => download(c) })}
                           >
                             TXT
                           </button>
@@ -185,7 +195,8 @@ export function ProductTable({
           )}
         </div>
       </section>
-      {note && <Toast message={note} />}{" "}
+      {note && <Toast message={note} tone={failed ? "error" : "success"} />}
+      {pending && <ConfirmModal title={pending.title} onClose={() => setPending(null)}><div className="card-body"><p style={{ margin: 0 }}>{pending.message}</p></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setPending(null)}>Batal</button><button className="btn btn-primary" onClick={() => { const run = pending.run; setPending(null); run(); }}>Ya, lanjutkan</button></div></ConfirmModal>}
       {preview && (
         <ConfirmModal
           title={`Preview — ${preview.title}`}
@@ -200,7 +211,7 @@ export function ProductTable({
             </button>
             <button
               className="btn btn-primary"
-              onClick={() => broadcast(preview)}
+              onClick={() => setPending({ title: "Konfirmasi broadcast gambar", message: `Kirim gambar daftar harga kategori ${preview.title} ke Telegram sekarang?`, run: () => broadcast(preview, "image") })}
             >
               Kirim sekarang
             </button>

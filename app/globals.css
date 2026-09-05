@@ -186,6 +186,9 @@ button {
   bottom: 20px;
   left: 24px;
   right: 24px;
+  width: calc(100% - 48px);
+  border: 0;
+  text-align: left;
   padding: 13px;
   background: #f8f8fc;
   border-radius: 12px;
@@ -193,6 +196,44 @@ button {
   gap: 9px;
   align-items: center;
 }
+.sidebar-user:hover { background: #eeeeff; }
+.sidebar-user-copy { display: grid; gap: 2px; }
+.sidebar-user-copy small { color: var(--muted); font-size: 11px; }
+.profile-chevron { margin-left: auto; color: var(--muted); font-size: 16px; }
+.sidebar-bot-status {
+  position: absolute;
+  bottom: 88px;
+  left: 24px;
+  right: 24px;
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: #e9fbf4;
+  color: #16875b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sidebar-bot-status span { color: #24b47e; margin-right: 5px; }
+.profile-summary { display: flex; align-items: center; gap: 11px; }
+.profile-menu {
+  position: absolute;
+  z-index: 6;
+  bottom: 132px;
+  left: 20px;
+  right: 20px;
+  overflow: hidden;
+  border: 1px solid #e2e2f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(32, 32, 77, 0.18);
+}
+.profile-menu-head { display: flex; gap: 10px; align-items: center; padding: 13px; border-bottom: 1px solid var(--line); }
+.profile-menu-head > div { display: grid; gap: 2px; }
+.profile-menu-head small { color: var(--muted); font-size: 11px; }
+.profile-logout { width: 100%; padding: 11px 13px; background: #fff; color: #c92e50; text-align: left; font-weight: 700; }
+.profile-logout:hover { background: #fff3f6; }
+.broadcast-selected-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 21px; margin-bottom: 18px; }
+.broadcast-selected-card h2 { margin: 0 0 4px; font: 800 16px Manrope; }
+.broadcast-selected-card p { margin: 0; font-size: 12px; }
 .avatar {
   width: 30px;
   height: 30px;
@@ -575,6 +616,12 @@ button {
   box-shadow: var(--shadow);
   z-index: 20;
 }
+.toast.success {
+  background: #1e694d;
+}
+.toast.error {
+  background: #aa2f4d;
+}
 .log-item {
   display: grid;
   grid-template-columns: 12px 1fr auto;
@@ -650,6 +697,7 @@ button {
   .setting-grid {
     gap: 12px;
   }
+  .broadcast-selected-card { align-items: flex-start; flex-direction: column; }
   .login-card {
     padding: 30px 23px;
   }

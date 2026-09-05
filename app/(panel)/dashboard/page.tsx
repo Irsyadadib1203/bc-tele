@@ -1,5 +1,5 @@
 import { db as prisma } from "@/lib/mysql";
-import { ApiButton } from "@/components/ui";
+import { ConfirmedForm } from "@/components/ui";
 export default async function Dashboard() {
   const settings = await prisma.settings.findUnique({ where: { id: 1 } });
   const level = settings?.selectedLevelId
@@ -27,7 +27,6 @@ export default async function Dashboard() {
             Ringkasan katalog dan aktivitas broadcaster Anda.
           </p>
         </div>
-        <ApiButton url="/api/products/sync">Refresh produk manual</ApiButton>
       </div>
       <section className="grid-4">
         <Metric
@@ -65,11 +64,7 @@ export default async function Dashboard() {
             <p className="muted" style={{ marginTop: 0 }}>
               Atur interval pengambilan produk dari API.
             </p>
-            <form
-              action="/api/settings"
-              method="post"
-              className="inline-fields"
-            >
+            <ConfirmedForm action="/api/settings" className="inline-fields" confirmTitle="Konfirmasi interval" confirmMessage="Simpan interval pengambilan produk yang baru?">
               <label className="field">
                 Interval get produk
                 <select
@@ -84,7 +79,7 @@ export default async function Dashboard() {
                 </select>
               </label>
               <button className="btn btn-primary">Simpan interval</button>
-            </form>
+            </ConfirmedForm>
             <div style={{ marginTop: 18 }}>
               {configured ? (
                 <div className="sync-row">

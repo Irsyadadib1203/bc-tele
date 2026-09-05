@@ -4,7 +4,7 @@ import { currentUserId } from "@/lib/auth";
 export async function POST(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const { action, id, name, time, days, enabled } =
+  const { action, id, name, time, days, enabled, broadcastFormat } =
     await req.json();
   if (action === "create") {
     if (!time || !days?.length)
@@ -12,12 +12,15 @@ export async function POST(req: Request) {
         { error: "Waktu dan hari harus diisi" },
         { status: 400 },
       );
+    if (!["image", "text", "both"].includes(broadcastFormat))
+      return NextResponse.json({ error: "Format broadcast tidak valid" }, { status: 400 });
     await db.broadcastSchedule.create({
       data: {
         name: name || "Jadwal broadcast",
         time,
         days: days.join(","),
         categoryIds: "",
+        broadcastFormat,
         enabled: !!enabled,
       },
     });

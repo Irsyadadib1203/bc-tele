@@ -1,4 +1,5 @@
 import { db as prisma } from "@/lib/mysql";
+import { ConfirmedForm } from "@/components/ui";
 export default async function DesignPage() {
   const s = await prisma.settings.findUnique({ where: { id: 1 } });
   return (
@@ -12,11 +13,7 @@ export default async function DesignPage() {
         </div>
       </div>
       <div className="setting-grid">
-        <form
-          action="/api/settings"
-          method="post"
-          className="card setting-card"
-        >
+        <ConfirmedForm action="/api/settings" className="card setting-card" confirmTitle="Konfirmasi desain" confirmMessage="Simpan perubahan desain header ini?">
           <h2>Pengaturan header</h2>
           <p className="muted">
             Perubahan diterapkan pada gambar broadcast berikutnya.
@@ -58,7 +55,7 @@ export default async function DesignPage() {
           <button className="btn btn-primary" style={{ marginTop: 20 }}>
             Simpan desain
           </button>
-        </form>
+        </ConfirmedForm>
         <section className="card setting-card">
           <h2>Pratinjau gambar</h2>
           <p className="muted">

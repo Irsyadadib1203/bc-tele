@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentUserId } from "@/lib/auth";
 import { db } from "@/lib/mysql";
 import { NavLinks } from "./nav-links";
+import { SidebarProfile } from "./sidebar-profile";
 const links = [
   ["/dashboard", "⌂", "Dashboard"],
   ["/products", "▦", "Produk & Filter Prefix"],
@@ -20,19 +21,11 @@ export async function Sidebar() {
     <aside className="sidebar">
       <div className="logo">
         <span className="logo-mark">✦</span>
-        <span>Bcastly</span>
+        <span>BC josjis</span>
       </div>
       <div className="nav-label">Menu utama</div>
       <NavLinks />
-      <div className="sidebar-user">
-        <span className="avatar">{username[0].toUpperCase()}</span>
-        <div>
-          <b>{username}</b>
-          <div className="muted" style={{ fontSize: 11 }}>
-            Administrator
-          </div>
-        </div>
-      </div>
+      <SidebarProfile username={username} />
     </aside>
   );
 }

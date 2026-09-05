@@ -46,8 +46,10 @@ Generate `SESSION_SECRET` dengan `openssl rand -hex 32`. Isi juga Site URL produ
 
 ```bash
 sudo cp /var/www/bcastly/deploy/bcastly.service /etc/systemd/system/bcastly.service
+sudo cp /var/www/bcastly/deploy/bc-josjis-worker.service /etc/systemd/system/bc-josjis-worker.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now bcastly
+sudo systemctl enable --now bc-josjis-worker
 sudo cp /var/www/bcastly/deploy/nginx-bcastly.conf /etc/nginx/sites-available/bcastly
 sudo nano /etc/nginx/sites-available/bcastly
 sudo ln -s /etc/nginx/sites-available/bcastly /etc/nginx/sites-enabled/bcastly
@@ -65,6 +67,11 @@ sudo -u bcastly npm ci
 sudo -u bcastly npm run db:init
 sudo -u bcastly npm run build
 sudo systemctl restart bcastly
+sudo systemctl restart bc-josjis-worker
 ```
 
-Status/log: `sudo systemctl status bcastly` dan `sudo journalctl -u bcastly -f`.
+Worker scheduler memeriksa jadwal setiap 15 detik dalam zona waktu WIB (Asia/Jakarta). Setiap jadwal dapat mengirim gambar, teks, atau keduanya untuk semua kategori yang dicentang pada level aktif. Worker menandai menit eksekusi sebelum mengirim agar tidak terjadi pengiriman ganda saat polling atau restart.
+
+Status/log web: `sudo systemctl status bcastly` dan `sudo journalctl -u bcastly -f`.
+
+Status/log scheduler: `sudo systemctl status bc-josjis-worker` dan `sudo journalctl -u bc-josjis-worker -f`.

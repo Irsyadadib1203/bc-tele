@@ -38,6 +38,12 @@ export async function POST() {
       { error: "API Key untuk level harga yang dipilih belum diisi." },
       { status: 400 },
     );
+  await db.activityLog.create({
+    data: {
+      type: "SYNC_START",
+      message: `[Level ${level.name}] Fetching produk dari SPL API...`,
+    },
+  });
   try {
     const response = await fetch(`${siteUrl.replace(/\/$/, "")}/v1/products`, {
       headers: { Authorization: level.apiKey, Accept: "application/json" },
@@ -80,7 +86,7 @@ export async function POST() {
     await db.activityLog.create({
       data: {
         type: "SYNC",
-        message: `Sinkronisasi ${level.name}: ${products.length} produk aktif dari ${groups.size} kategori`,
+        message: `[Level ${level.name}] Refresh sukses: ${groups.size} kategori, ${products.length} produk`,
       },
     });
     return NextResponse.json({
@@ -90,7 +96,7 @@ export async function POST() {
     const message =
       error instanceof Error ? error.message : "Gagal menghubungkan API";
     await db.activityLog.create({
-      data: { type: "ERROR", message: `Sinkronisasi gagal: ${message}` },
+      data: { type: "ERROR", message: `[Level ${level?.name || "aktif"}] Refresh gagal: ${message}` },
     });
     return NextResponse.json({ error: message }, { status: 502 });
   }

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ConfirmModal, Toast } from "./ui";
+import { useRouter } from "next/navigation";
+import { ApiButton, ConfirmModal, Toast } from "./ui";
 type Level = { id: string; name: string };
 export function Topbar({
   levels,
@@ -11,26 +12,44 @@ export function Topbar({
   selectedLevelId: string | null;
   theme: string;
 }) {
+  const router = useRouter();
   useEffect(() => {
     document.body.dataset.theme = theme;
   }, [theme]);
   const [add, setAdd] = useState(false),
     [name, setName] = useState(""),
-    [note, setNote] = useState("");
+    [note, setNote] = useState(""),
+    [failed, setFailed] = useState(false),
+    [confirm, setConfirm] = useState<{ title: string; message: string; run: () => void } | null>(null);
   async function call(url: string, body: unknown) {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const d = await r.json();
-    setNote(d.message || d.error || "Gagal");
-    if (r.ok) setTimeout(() => location.reload(), 350);
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      setFailed(!r.ok);
+      setNote(d.message || d.error || (r.ok ? "Aksi berhasil dilakukan" : "Aksi gagal dilakukan"));
+      if (r.ok) setTimeout(() => location.reload(), 1100);
+    } catch {
+      setFailed(true);
+      setNote("Tidak dapat terhubung ke server");
+    }
   }
   function changeTheme() {
     const next = theme === "dark" ? "light" : "dark";
     document.body.dataset.theme = next;
     call("/api/settings", { theme: next });
+  }
+  async function selectLevel(id: string) {
+    if (id === selectedLevelId) return;
+    try {
+      const r = await fetch("/api/levels", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "select", id }) });
+      const d = await r.json().catch(() => ({}));
+      setFailed(!r.ok);
+      setNote(d.message || d.error || (r.ok ? "Level harga dipilih" : "Gagal memilih level harga"));
+      if (r.ok) router.refresh();
+    } catch {
+      setFailed(true);
+      setNote("Tidak dapat terhubung ke server");
+    }
   }
   return (
     <>
@@ -41,9 +60,7 @@ export function Topbar({
             <button
               key={l.id}
               className={`level-tab ${l.id === selectedLevelId ? "active" : ""}`}
-              onClick={() =>
-                call("/api/levels", { action: "select", id: l.id })
-              }
+              onClick={() => selectLevel(l.id)}
             >
               {l.name}
             </button>
@@ -53,18 +70,16 @@ export function Topbar({
           </button>
         </div>
         <div className="top-actions">
-          <button className="btn btn-ghost" onClick={changeTheme}>
+          <button className="btn btn-ghost" onClick={() => setConfirm({ title: "Ubah tampilan", message: "Terapkan perubahan tema tampilan?", run: changeTheme })}>
             {theme === "dark" ? "☀ Light" : "◐ Dark"}
           </button>
-          <span className="top-status">● Bot online</span>
-          <form action="/api/auth/logout" method="post">
-            <button className="btn btn-ghost">Keluar</button>
-          </form>
+          <ApiButton url="/api/products/sync" className="btn btn-primary" confirmTitle="Konfirmasi sinkronisasi" confirmMessage="Ambil dan perbarui katalog produk dari API sekarang?">Refresh produk</ApiButton>
         </div>
       </header>
-      {note && <Toast message={note} />}{" "}
+      {note && <Toast message={note} tone={failed ? "error" : "success"} />}
+      {confirm && <ConfirmModal title={confirm.title} onClose={() => setConfirm(null)}><div className="card-body"><p style={{ margin: 0 }}>{confirm.message}</p></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setConfirm(null)}>Batal</button><button className="btn btn-primary" onClick={() => { const run = confirm.run; setConfirm(null); run(); }}>Ya, lanjutkan</button></div></ConfirmModal>}
       {add && (
-        <ConfirmModal title="Tambah level harga" onClose={() => setAdd(false)}>
+        <ConfirmModal title="Konfirmasi tambah level harga" onClose={() => setAdd(false)}>
           <div className="card-body">
             <label className="field">
               Nama level
@@ -82,9 +97,14 @@ export function Topbar({
             </button>
             <button
               className="btn btn-primary"
-              onClick={() =>
-                name.trim() && call("/api/levels", { action: "create", name })
-              }
+              onClick={() => {
+                if (!name.trim()) {
+                  setFailed(true);
+                  setNote("Nama level wajib diisi");
+                  return;
+                }
+                call("/api/levels", { action: "create", name });
+              }}
             >
               Tambah level
             </button>

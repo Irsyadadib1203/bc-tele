@@ -1,5 +1,5 @@
 [Unit]
-Description=BC josjis Telegram Broadcaster
+Description=BC josjis Broadcast Scheduler
 After=network.target mysql.service
 
 [Service]
@@ -9,7 +9,7 @@ Group=bcastly
 WorkingDirectory=/var/www/bcastly
 Environment=NODE_ENV=production
 EnvironmentFile=/etc/bcastly/bcastly.env
-ExecStart=/usr/bin/npm run start -- -p 3000
+ExecStart=/usr/bin/npm run worker
 Restart=always
 RestartSec=5
 TimeoutStopSec=20

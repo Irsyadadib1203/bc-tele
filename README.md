@@ -1,4 +1,4 @@
-# Bcastly — Telegram Broadcaster
+# BC josjis — Telegram Broadcaster
 
 Panel Next.js untuk menyinkronkan produk dari API, menyaring prefix kode produk, lalu mengirim kartu harga berbentuk PNG ke Telegram.
 

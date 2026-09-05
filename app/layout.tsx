@@ -2,7 +2,7 @@ import "./globals.css";
 import "./theme.css";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
-  title: "Bcastly — Telegram Broadcaster",
+  title: "BC josjis — Telegram Broadcaster",
   description: "Panel broadcast produk ke Telegram",
 };
 export default function RootLayout({

@@ -30,7 +30,9 @@ export default async function Activity() {
                         ? "#e74c70"
                         : log.type === "BROADCAST"
                           ? "#24b47e"
-                          : "#5b5bd6",
+                          : log.type === "SYNC"
+                            ? "#24b47e"
+                            : "#5b5bd6",
                   }}
                 />
                 <div>

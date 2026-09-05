@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Toast } from "./ui";
+import { ConfirmModal, ConfirmedForm, Toast } from "./ui";
 type Level = { id: string; name: string; apiKey: string | null } | null;
 export function ConnectionSettings({
   level,
@@ -13,16 +13,20 @@ export function ConnectionSettings({
 }) {
   const [name, setName] = useState(level?.name || ""),
     [apiKey, setApiKey] = useState(level?.apiKey || ""),
-    [note, setNote] = useState("");
+    [note, setNote] = useState(""),
+    [failed, setFailed] = useState(false),
+    [pending, setPending] = useState<{ title: string; message: string; body: unknown } | null>(null);
   async function api(url: string, body: any) {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const d = await r.json();
-    setNote(d.message || d.error || "Gagal");
-    if (r.ok) setTimeout(() => location.reload(), 500);
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      setFailed(!r.ok);
+      setNote(d.message || d.error || (r.ok ? "Aksi berhasil dilakukan" : "Aksi gagal dilakukan"));
+      if (r.ok) setTimeout(() => location.reload(), 500);
+    } catch {
+      setFailed(true);
+      setNote("Tidak dapat terhubung ke server");
+    }
   }
   return (
     <>
@@ -50,25 +54,14 @@ export function ConnectionSettings({
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 20 }}
-                onClick={() =>
-                  api("/api/levels", {
-                    action: "update",
-                    id: level.id,
-                    name,
-                    apiKey,
-                  })
-                }
+                onClick={() => setPending({ title: "Konfirmasi level", message: "Simpan perubahan nama level dan API key ini?", body: { action: "update", id: level.id, name, apiKey } })}
               >
                 Simpan level & API key
               </button>
               <button
                 className="btn btn-danger"
                 style={{ marginTop: 20, marginLeft: 10 }}
-                onClick={() =>
-                  confirm(
-                    `Hapus level ${level.name}? Produk level ini juga akan terhapus.`,
-                  ) && api("/api/levels", { action: "delete", id: level.id })
-                }
+                onClick={() => setPending({ title: "Hapus level harga", message: `Hapus level ${level.name}? Produk pada level ini juga akan terhapus.`, body: { action: "delete", id: level.id } })}
               >
                 Hapus level ini
               </button>
@@ -79,11 +72,7 @@ export function ConnectionSettings({
             </div>
           )}
         </section>
-        <form
-          action="/api/settings"
-          method="post"
-          className="card setting-card"
-        >
+        <ConfirmedForm action="/api/settings" className="card setting-card" confirmTitle="Konfirmasi koneksi Telegram" confirmMessage="Simpan konfigurasi bot Telegram ini?">
           <h2>Bot Telegram</h2>
           <p className="muted">
             Pastikan bot menjadi admin apabila target adalah channel.
@@ -108,9 +97,10 @@ export function ConnectionSettings({
           <button className="btn btn-primary" style={{ marginTop: 20 }}>
             Simpan koneksi Telegram
           </button>
-        </form>
+        </ConfirmedForm>
       </div>
-      {note && <Toast message={note} />}
+      {note && <Toast message={note} tone={failed ? "error" : "success"} />}
+      {pending && <ConfirmModal title={pending.title} onClose={() => setPending(null)}><div className="card-body"><p style={{ margin: 0 }}>{pending.message}</p></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setPending(null)}>Batal</button><button className="btn btn-primary" onClick={() => { const body = pending.body; setPending(null); api("/api/levels", body); }}>Ya, lanjutkan</button></div></ConfirmModal>}
     </>
   );
 }

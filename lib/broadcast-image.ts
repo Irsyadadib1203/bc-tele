@@ -1,153 +1,30 @@
-import { deflateSync } from "zlib";
-type Product = { product_name: string; product_price: number };
-const font: Record<string, string[]> = {
-  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
-  B: ["11110", "10001", "11110", "10001", "10001", "10001", "11110"],
-  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
-  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
-  E: ["11111", "10000", "11110", "10000", "10000", "10000", "11111"],
-  F: ["11111", "10000", "11110", "10000", "10000", "10000", "10000"],
-  G: ["01111", "10000", "10000", "10111", "10001", "10001", "01111"],
-  H: ["10001", "10001", "11111", "10001", "10001", "10001", "10001"],
-  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
-  J: ["00111", "00010", "00010", "00010", "10010", "10010", "01100"],
-  K: ["10001", "10010", "11100", "10100", "10010", "10001", "10001"],
-  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
-  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
-  N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
-  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
-  Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
-  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
-  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
-  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
-  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
-  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
-  W: ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
-  X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
-  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
-  Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
-  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
-  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
-  "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
-  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
-  "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
-  "6": ["01110", "10000", "11110", "10001", "10001", "10001", "01110"],
-  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
-  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
-  "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
-  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
-  ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
-  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
-  "/": ["00001", "00010", "00100", "01000", "10000", "00000", "00000"],
-  ":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
-};
-function hex(v: string) {
-  const s = v.replace("#", "");
-  return [
-    parseInt(s.slice(0, 2), 16) || 91,
-    parseInt(s.slice(2, 4), 16) || 91,
-    parseInt(s.slice(4, 6), 16) || 214,
-  ] as [number, number, number];
+import sharp from "sharp";
+
+type Product = { product_code: string; product_price: number };
+
+function escapeXml(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&apos;");
 }
-function crc32(buf: Buffer) {
-  let c = ~0;
-  for (const byte of buf) {
-    c ^= byte;
-    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (c & 1 ? 0xedb88320 : 0);
-  }
-  return ~c >>> 0;
+
+function productLabel(value: string) {
+  return value.length > 52 ? `${value.slice(0, 51)}…` : value;
 }
-function chunk(type: string, data: Buffer) {
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length);
-  const tag = Buffer.from(type);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(Buffer.concat([tag, data])));
-  return Buffer.concat([length, tag, data, crc]);
-}
-export function makeBroadcastImage(
+
+/** Creates a single PNG with one row for every product in the category. */
+export async function makeBroadcastImage(
   title: string,
   products: Product[],
   primary: string,
   accent: string,
 ) {
-  const w = 1080,
-    h = Math.max(650, 310 + Math.min(products.length, 9) * 64);
-  const raw = Buffer.alloc((w * 4 + 1) * h);
-  const bg = hex(primary),
-    ac = hex(accent);
-  const pixel = (x: number, y: number, c: [number, number, number]) => {
-    if (x < 0 || y < 0 || x >= w || y >= h) return;
-    const i = y * (w * 4 + 1) + 1 + x * 4;
-    raw[i] = c[0];
-    raw[i + 1] = c[1];
-    raw[i + 2] = c[2];
-    raw[i + 3] = 255;
-  };
-  for (let y = 0; y < h; y++) {
-    raw[y * (w * 4 + 1)] = 0;
-    for (let x = 0; x < w; x++) {
-      const t = (x / w) * 0.55 + (y / h) * 0.45;
-      pixel(x, y, [
-        Math.round(bg[0] * (1 - t) + ac[0] * t),
-        Math.round(bg[1] * (1 - t) + ac[1] * t),
-        Math.round(bg[2] * (1 - t) + ac[2] * t),
-      ]);
-    }
-  }
-  const rect = (
-    x: number,
-    y: number,
-    rw: number,
-    rh: number,
-    c: [number, number, number],
-  ) => {
-    for (let py = y; py < y + rh; py++)
-      for (let px = x; px < x + rw; px++) pixel(px, py, c);
-  };
-  const write = (
-    text: string,
-    x: number,
-    y: number,
-    scale: number,
-    c: [number, number, number],
-    limit = 100,
-  ) => {
-    let ox = x;
-    for (const char of text.toUpperCase().slice(0, limit)) {
-      const glyph = font[char] || font[" "];
-      for (let gy = 0; gy < 7; gy++)
-        for (let gx = 0; gx < 5; gx++)
-          if (glyph[gy][gx] === "1")
-            rect(ox + gx * scale, y + gy * scale, scale, scale, c);
-      ox += 6 * scale;
-      if (ox > w - 40) break;
-    }
-  };
-  rect(55, 50, 240, 42, [255, 255, 255]);
-  write("PRICE UPDATE", 72, 61, 3, bg);
-  write(title, 58, 125, 7, [255, 255, 255], 22);
-  write("HARGA TERBARU HARI INI", 60, 190, 3, [235, 235, 255]);
-  let y = 260;
-  for (const p of products.slice(0, 9)) {
-    rect(50, y, w - 100, 49, [255, 255, 255]);
-    write(p.product_name, 72, y + 14, 3, [39, 40, 63], 42);
-    const price = `RP ${new Intl.NumberFormat("id-ID").format(p.product_price)}`;
-    write(price, 750, y + 14, 3, bg, 20);
-    y += 63;
-  }
-  write("BCASTLY", 60, h - 44, 3, [235, 235, 255]);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0);
-  ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8;
-  ihdr[9] = 6;
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(raw)),
-    chunk("IEND", Buffer.alloc(0)),
-  ]);
+  const width = 1080;
+  const rowHeight = 62;
+  const height = Math.max(650, 342 + products.length * rowHeight);
+  const rows = products.map((product, index) => {
+    const y = 260 + index * rowHeight;
+    const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
+    return `<g><rect x="50" y="${y}" width="980" height="48" rx="10" fill="#ffffff" fill-opacity="0.97"/><text x="76" y="${y + 31}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="600">${escapeXml(productLabel(product.product_code))}</text><text x="1002" y="${y + 31}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700"> ${price}</text></g>`;
+  }).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="238" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">PRICE UPDATE</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">Harga terbaru hari ini</text>${rows}<text x="60" y="${height - 42}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="2">BC JOSJIS</text></svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
 }

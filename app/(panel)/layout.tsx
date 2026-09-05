@@ -3,6 +3,7 @@ import { currentUserId } from "@/lib/auth";
 import { db } from "@/lib/mysql";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
+import { FlashNotice } from "@/components/ui";
 export default async function PanelLayout({
   children,
 }: {
@@ -21,6 +22,7 @@ export default async function PanelLayout({
         selectedLevelId={settings?.selectedLevelId || levels[0]?.id || null}
         theme={String(settings?.theme || "light")}
       />
+      <FlashNotice />
       {children}
     </div>
   );

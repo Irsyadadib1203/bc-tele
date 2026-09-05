@@ -6,6 +6,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
   const ct = req.headers.get("content-type") || "";
   let data: Record<string, any> = {};
+  const expectsJson = ct.includes("application/json") || req.headers.get("accept")?.includes("application/json");
   if (ct.includes("application/json")) data = await req.json();
   else {
     const f = await req.formData();
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   await db.activityLog.create({
     data: { type: "SETTINGS", message: "Pengaturan broadcaster diperbarui" },
   });
-  if (ct.includes("application/json"))
+  if (expectsJson)
     return NextResponse.json({ message: "Pengaturan berhasil disimpan" });
   return NextResponse.redirect(
     new URL(req.headers.get("referer") || "/dashboard", req.url),
