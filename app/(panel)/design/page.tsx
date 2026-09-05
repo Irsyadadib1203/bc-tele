@@ -23,8 +23,8 @@ export default async function DesignPage() {
             <input name="headerTitle" defaultValue={s?.headerTitle} />
           </label>
           <label className="field">
-            Subjudul header
-            <input name="headerSubtitle" defaultValue={s?.headerSubtitle} />
+            Info pembaruan
+            <input value="Tanggal dan waktu pembaruan otomatis" readOnly />
           </label>
           <div className="inline-fields">
             <label className="field">
@@ -76,19 +76,19 @@ export default async function DesignPage() {
             </span>
             <h3>Mobile Legends</h3>
             <p style={{ opacity: 0.85 }}>
-              {s?.headerSubtitle || "Harga terbaru hari ini"}
+              Tanggal dan waktu pembaruan otomatis
             </p>
             <div className="product-list">
               <div>
-                <span>86 Diamonds</span>
+                <span>ML86</span>
                 <b>Rp 18.624</b>
               </div>
               <div>
-                <span>172 Diamonds</span>
+                <span>ML172</span>
                 <b>Rp 37.248</b>
               </div>
               <div>
-                <span>257 Diamonds</span>
+                <span>ML257</span>
                 <b>Rp 55.872</b>
               </div>
             </div>

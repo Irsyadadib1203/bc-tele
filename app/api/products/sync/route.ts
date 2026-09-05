@@ -3,7 +3,7 @@ import { db } from "@/lib/mysql";
 import { currentUserId } from "@/lib/auth";
 type Product = {
   product_id: string;
-  product_name: string;
+  product_name?: string;
   product_code: string;
   product_price: number;
   is_active: boolean;
@@ -58,7 +58,7 @@ export async function POST() {
       (product): product is Product =>
         typeof product === "object" &&
         product !== null &&
-        typeof (product as Product).product_name === "string" &&
+        typeof (product as Product).product_code === "string" &&
         (product as Product).is_active !== false,
     );
     const groups = new Map<string, Product[]>();

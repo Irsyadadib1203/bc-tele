@@ -63,7 +63,7 @@ export function ProductTable({
     const text = visible
       .map(
         (p: any) =>
-          `${p.product_name} (${p.product_code}) - ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
+          `${p.product_code} - ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
       )
       .join("\n");
     const a = document.createElement("a");
@@ -241,11 +241,11 @@ function BroadcastPreview({ category, feeConfiguration }: { category: Category; 
         PRICE UPDATE
       </span>
       <h3>{category.title}</h3>
-      <p style={{ opacity: 0.8, marginTop: 4 }}>Harga terbaru hari ini</p>
+      <p style={{ opacity: 0.8, marginTop: 4 }}>Diperbarui sesuai waktu pengiriman</p>
       <div className="product-list">
         {products.map((p: any) => (
           <div key={p.product_id}>
-            <span>{p.product_name}</span>
+            <span>{p.product_code}</span>
             <b>Rp {new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}</b>
           </div>
         ))}

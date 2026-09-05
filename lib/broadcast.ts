@@ -57,7 +57,7 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
   formData.set("caption", caption);
   formData.set("parse_mode", "HTML");
   await telegramRequest(`${telegramUrl}/sendPhoto`, { method: "POST", body: formData });
-  await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast gambar ${title} berhasil dikirim (${products.length} produk)`, meta: { categoryId: category.id } } });
+  await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast gambar ${title} berhasil dikirim (${products.length} produk, 1 gambar)`, meta: { categoryId: category.id } } });
   return title;
 }
 
