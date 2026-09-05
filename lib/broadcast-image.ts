@@ -2,9 +2,9 @@ import sharp from "sharp";
 
 type Product = { product_code: string; product_price: number };
 
-// Telegram accepts images up to 10,000 px on each side. Leave a small margin
-// below that ceiling so one image can safely hold roughly 400 products.
-const TELEGRAM_SAFE_MAX_HEIGHT = 9_800;
+// Telegram requires the combined width and height of a photo to stay below
+// 10,000 px. With a 1,080 px-wide image, 8,800 px leaves a safe margin.
+const TELEGRAM_SAFE_MAX_HEIGHT = 8_800;
 const MINIMUM_ROW_HEIGHT = 16;
 
 function escapeXml(value: string) {
