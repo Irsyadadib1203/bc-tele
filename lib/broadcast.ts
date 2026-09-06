@@ -2,7 +2,11 @@ import { makeBroadcastImage } from "@/lib/broadcast-image";
 import { priceWithSellerFee } from "@/lib/fee";
 import { db } from "@/lib/mysql";
 
-type Product = { product_code: string; product_price: number };
+type Product = {
+  product_code: string;
+  product_price: number;
+  product_name?: string;
+};
 export type BroadcastFormat = "text" | "image";
 type TelegramResponse = { ok?: boolean; description?: string };
 const TELEGRAM_MAX_LENGTH = 3900;
@@ -24,6 +28,19 @@ function splitMessages(lines: string[], heading: string) {
 }
 function matchesExcludedPrefix(product: Product, prefixes: string[]) {
   return prefixes.some((prefix) => product.product_code.toLowerCase().startsWith(prefix));
+}
+
+// Membership and subscription packages read better after the usual top-up
+// denominations. Keep the API order intact within each of the two groups.
+function isMembershipProduct(product: Product) {
+  const label = `${product.product_name ?? ""} ${product.product_code}`.toLowerCase();
+  return /membership|member|weekly|monthly|mingguan|bulanan|subscription|langganan/.test(label);
+}
+
+function productsForTextBroadcast(products: Product[]) {
+  return [...products].sort(
+    (left, right) => Number(isMembershipProduct(left)) - Number(isMembershipProduct(right)),
+  );
 }
 
 function includedProducts(category: any) {
@@ -87,7 +104,10 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
 
   if (format === "text") {
-    const lines = productsWithFee.map((product) => `${escapeHtml(product.product_code)} Rp. ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`);
+    const lines = productsForTextBroadcast(productsWithFee).map(
+      (product) =>
+        `${escapeHtml(product.product_code)} = Rp ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`,
+    );
     const messages = splitMessages(lines, `${caption}\n`);
     for (const text of messages) await telegramRequest(`${telegramUrl}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: settings.targetChatId, text, parse_mode: "HTML" }) });
     await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast teks ${title} berhasil dikirim (${productsWithFee.length} produk)`, meta: { categoryId: category.id } } });
