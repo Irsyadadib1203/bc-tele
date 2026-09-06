@@ -1,7 +1,12 @@
 import sharp from "sharp";
 import { formatWibDateTime } from "@/lib/time";
 
-type Product = { product_code: string; product_price: number };
+type Product = {
+  product_code: string;
+  product_price: number;
+  /** Final selling-price difference, shown only on automatic change notices. */
+  priceChange?: number;
+};
 
 // Telegram requires the combined width and height of a photo to stay below
 // 10,000 px. We stay far below that by using a multi-column grid instead of
@@ -114,8 +119,16 @@ export async function makeBroadcastImage(
       const price = new Intl.NumberFormat("id-ID").format(
         product.product_price || 0,
       );
+      const difference = Number(product.priceChange);
+      const differenceLabel =
+        Number.isFinite(difference) && difference !== 0
+          ? `(${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))})`
+          : "";
+      const differenceText = differenceLabel
+        ? `<text x="${columnX + columnWidth / 2}" y="${textBaseline}" text-anchor="middle" fill="${difference > 0 ? "#178757" : "#d0445f"}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${differenceLabel}</text>`
+        : "";
 
-      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(productLabel(product.product_code, columnWidth))}</text><text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
+      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(productLabel(product.product_code, columnWidth))}</text>${differenceText}<text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
     })
     .join("");
 

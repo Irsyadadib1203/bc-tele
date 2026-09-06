@@ -1,9 +1,23 @@
 import { broadcastCategories, type BroadcastFormat } from "../lib/broadcast";
 import { sendCustomBroadcast } from "../lib/custom-broadcast";
 import { db, pool } from "../lib/mysql";
+import { syncSelectedLevel } from "../lib/product-sync";
 
 const POLL_MS = Math.max(5_000, Number(process.env.SCHEDULE_POLLING_MS || 15_000));
 let running = false;
+let lastProductSyncAt = 0;
+
+async function syncProductsWhenDue(settings: any) {
+  const intervalMinutes = Math.max(1, Number(settings?.pollingInterval) || 15);
+  if (Date.now() - lastProductSyncAt < intervalMinutes * 60_000) return;
+  lastProductSyncAt = Date.now();
+  try {
+    const result = await syncSelectedLevel(settings);
+    console.log(`Product sync complete: ${result.productCount} products, ${result.automaticBroadcasts} price-change broadcasts.`);
+  } catch (error) {
+    console.error("Automatic product sync failed:", error);
+  }
+}
 
 function jakartaNow() {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -69,6 +83,7 @@ async function tick() {
   running = true;
   try {
     const settings = await db.settings.findUnique();
+    await syncProductsWhenDue(settings);
     if (!settings?.scheduleEnabled) return;
     const now = jakartaNow();
     const schedules = await db.broadcastSchedule.findMany();

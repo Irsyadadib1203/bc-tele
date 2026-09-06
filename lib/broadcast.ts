@@ -7,6 +7,7 @@ type Product = {
   product_price: number;
   product_name?: string;
 };
+export type PriceChangedProduct = Product & { previousPrice: number };
 export type BroadcastFormat = "text" | "image";
 type TelegramResponse = { ok?: boolean; description?: string };
 const TELEGRAM_MAX_LENGTH = 3900;
@@ -89,6 +90,47 @@ export async function makeCategoryBroadcastImage(
     String(settings.accentColor ?? "#A78BFA"),
     updatedAt,
   );
+}
+
+/** Sends a compact image containing only products whose price changed during
+ * a catalogue sync. Existing prefix exclusions and member fees still apply. */
+export async function sendPriceChangeBroadcast(
+  category: any,
+  changedProducts: PriceChangedProduct[],
+  settings: any,
+) {
+  if (!settings?.botToken || !settings?.targetChatId) {
+    throw new Error("Bot Token dan Target Chat ID harus dikonfigurasi.");
+  }
+  const visibleProducts = includedProducts({ ...category, products: changedProducts }) as PriceChangedProduct[];
+  if (!visibleProducts.length) return false;
+  const level = typeof category.levelId === "string"
+    ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
+    : null;
+  const productsWithDifference = visibleProducts.map((product) => {
+    const newPrice = priceWithSellerFee(product.product_price, level ?? {}, product);
+    const oldPrice = priceWithSellerFee(product.previousPrice, level ?? {}, product);
+    return { ...product, product_price: newPrice, priceChange: newPrice - oldPrice };
+  }).filter((product) => product.priceChange !== 0);
+  if (!productsWithDifference.length) return false;
+  const title = String(category.title);
+  const caption = String(settings.imageCaption ?? `<b>${title}</b>\nPerubahan harga terbaru.`)
+    .replaceAll("{category}", escapeHtml(title))
+    .replaceAll("{count}", String(productsWithDifference.length));
+  const image = await makeBroadcastImage(
+    title,
+    productsWithDifference,
+    String(settings.primaryColor ?? "#5B5BD6"),
+    String(settings.accentColor ?? "#A78BFA"),
+  );
+  const formData = new FormData();
+  formData.set("chat_id", settings.targetChatId);
+  formData.set("photo", new Blob([image], { type: "image/png" }), `${title}-perubahan-harga.png`);
+  formData.set("caption", caption);
+  formData.set("parse_mode", "HTML");
+  await telegramRequest(`https://api.telegram.org/bot${settings.botToken}/sendPhoto`, { method: "POST", body: formData });
+  await db.activityLog.create({ data: { type: "AUTO_PRICE_CHANGE", message: `BC perubahan harga ${title} berhasil dikirim (${productsWithDifference.length} produk)`, meta: { categoryId: category.id } } });
+  return true;
 }
 async function telegramRequest(url: string, init: RequestInit) {
   const response = await fetch(url, init);
