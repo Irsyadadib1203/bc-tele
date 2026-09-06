@@ -3,7 +3,7 @@ import { formatWibDateTime } from "@/lib/time";
 export default async function Activity() {
   const logs = await prisma.activityLog.findMany({
     orderBy: { createdAt: "desc" },
-    take: 100,
+    take: 30,
   });
   return (
     <main className="main">
@@ -17,7 +17,7 @@ export default async function Activity() {
       </div>
       <section className="card">
         <div className="card-head">
-          <h2>{logs.length} aktivitas terakhir</h2>
+          <h2>{logs.length} aktivitas terbaru</h2>
         </div>
         <div className="card-body">
           {logs.length ? (

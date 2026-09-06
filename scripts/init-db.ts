@@ -50,6 +50,9 @@ async function main() {
   if ((await db.customBroadcast.count()) === 0) {
     await db.customBroadcast.create({ data: { name: "BC Custom 1", content: "" } });
   }
+  await pool.query(
+    "DELETE FROM `ActivityLog` WHERE id NOT IN (SELECT id FROM (SELECT id FROM `ActivityLog` ORDER BY createdAt DESC, id DESC LIMIT 30) AS latest)",
+  );
 
   const settings = await db.settings.findUnique();
   if (!settings?.selectedLevelId) {

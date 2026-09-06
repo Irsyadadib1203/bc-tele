@@ -382,10 +382,10 @@ export const db: any = {
 
   activityLog: {
     findMany: async ({
-      take = 100,
+      take = 30,
     }: { take?: number; orderBy?: unknown } = {}) =>
       findMany("SELECT * FROM `ActivityLog` ORDER BY createdAt DESC LIMIT ?", [
-        take,
+        Math.min(Math.max(1, take), 30),
       ]),
     create: async ({
       data,
@@ -401,6 +401,11 @@ export const db: any = {
           data.message,
           data.meta === undefined ? null : JSON.stringify(data.meta),
         ],
+      );
+      // Keep the activity table small and relevant. The derived table avoids
+      // MySQL's restriction on selecting from the table being deleted.
+      await execute(
+        "DELETE FROM `ActivityLog` WHERE id NOT IN (SELECT id FROM (SELECT id FROM `ActivityLog` ORDER BY createdAt DESC, id DESC LIMIT 30) AS latest)",
       );
     },
   },
