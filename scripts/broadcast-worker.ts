@@ -42,7 +42,13 @@ async function runSchedule(schedule: any, settings: any) {
     }
     return;
   }
-  const levelId = typeof settings.selectedLevelId === "string" ? settings.selectedLevelId : null;
+  // New schedules pin their price level. The global active level is used only
+  // for legacy schedules created before levelId was introduced.
+  const levelId = typeof schedule.levelId === "string"
+    ? schedule.levelId
+    : typeof settings.selectedLevelId === "string"
+      ? settings.selectedLevelId
+      : null;
   const categories = levelId ? (await db.productCategory.findMany({ where: { levelId } })).filter((category: any) => category.selected) : [];
   if (!categories.length) {
     await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: belum ada kategori pilihan pada level aktif.` } });

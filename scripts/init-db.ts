@@ -20,7 +20,7 @@ async function main() {
   await pool.query(`CREATE TABLE IF NOT EXISTS \`PriceLevel\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, isActive BOOLEAN DEFAULT FALSE, apiKey TEXT, feeEnabled BOOLEAN DEFAULT FALSE, feeSmall INT DEFAULT 5, feeMedium INT DEFAULT 10, feeLarge INT DEFAULT 25, feeOverrides TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`ProductCategory\` (id VARCHAR(191) PRIMARY KEY, levelId VARCHAR(191) NOT NULL, title VARCHAR(255) NOT NULL, type VARCHAR(100), selected BOOLEAN DEFAULT FALSE, prefixFilterEnabled BOOLEAN DEFAULT FALSE, excludedPrefixes TEXT, productCount INT DEFAULT 0, products JSON NOT NULL, syncedAt DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY level_title(levelId,title))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`CustomBroadcast\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, content TEXT NOT NULL, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS \`BroadcastSchedule\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, enabled BOOLEAN DEFAULT FALSE, days VARCHAR(100) NOT NULL, time VARCHAR(5) NOT NULL, categoryIds TEXT NOT NULL, broadcastFormat VARCHAR(10) DEFAULT 'image', customBroadcastId VARCHAR(191), lastRunKey VARCHAR(32), createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS \`BroadcastSchedule\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, enabled BOOLEAN DEFAULT FALSE, days VARCHAR(100) NOT NULL, time VARCHAR(5) NOT NULL, categoryIds TEXT NOT NULL, broadcastFormat VARCHAR(10) DEFAULT 'image', levelId VARCHAR(191), customBroadcastId VARCHAR(191), lastRunKey VARCHAR(32), createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`ActivityLog\` (id VARCHAR(191) PRIMARY KEY, type VARCHAR(40) NOT NULL, message TEXT NOT NULL, meta JSON, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
   await addColumnIfMissing("PriceLevel", "feeEnabled", "BOOLEAN DEFAULT FALSE");
@@ -30,6 +30,7 @@ async function main() {
   await addColumnIfMissing("PriceLevel", "feeOverrides", "TEXT");
   await addColumnIfMissing("Settings", "imageCaption", "TEXT");
   await addColumnIfMissing("BroadcastSchedule", "broadcastFormat", "VARCHAR(10) DEFAULT 'image'");
+  await addColumnIfMissing("BroadcastSchedule", "levelId", "VARCHAR(191)");
   await addColumnIfMissing("BroadcastSchedule", "customBroadcastId", "VARCHAR(191)");
   await addColumnIfMissing("BroadcastSchedule", "lastRunKey", "VARCHAR(32)");
 

@@ -4,7 +4,7 @@ import { currentUserId } from "@/lib/auth";
 export async function POST(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const { action, id, name, time, days, enabled, broadcastFormat } =
+  const { action, id, name, time, days, enabled, broadcastFormat, levelId } =
     await req.json();
   if (action === "create") {
     if (!time || !days?.length)
@@ -16,10 +16,13 @@ export async function POST(req: Request) {
       typeof broadcastFormat === "string" && broadcastFormat.startsWith("custom:")
         ? broadcastFormat.slice("custom:".length)
         : null;
-    if (!["image", "text", "both"].includes(broadcastFormat) && !customId)
+    const isPriceFormat = ["image", "text", "both"].includes(broadcastFormat);
+    if (!isPriceFormat && !customId)
       return NextResponse.json({ error: "Format broadcast tidak valid" }, { status: 400 });
     if (customId && !(await db.customBroadcast.findUnique({ where: { id: customId } })))
       return NextResponse.json({ error: "BC custom tidak ditemukan" }, { status: 404 });
+    if (isPriceFormat && (typeof levelId !== "string" || !(await db.priceLevel.findUnique({ where: { id: levelId } }))))
+      return NextResponse.json({ error: "Pilih level harga yang valid" }, { status: 400 });
     await db.broadcastSchedule.create({
       data: {
         name: name || "Jadwal broadcast",
@@ -27,6 +30,7 @@ export async function POST(req: Request) {
         days: days.join(","),
         categoryIds: "",
         broadcastFormat: customId ? "custom" : broadcastFormat,
+        levelId: isPriceFormat ? levelId : null,
         customBroadcastId: customId,
         enabled: !!enabled,
       },

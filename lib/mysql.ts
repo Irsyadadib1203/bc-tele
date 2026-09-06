@@ -342,7 +342,7 @@ export const db: any = {
     create: async ({ data }: { data: Data }) => {
       const id = randomUUID();
       await execute(
-        "INSERT INTO `BroadcastSchedule` (id, name, enabled, days, time, categoryIds, broadcastFormat, customBroadcastId, lastRunKey, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+        "INSERT INTO `BroadcastSchedule` (id, name, enabled, days, time, categoryIds, broadcastFormat, levelId, customBroadcastId, lastRunKey, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
         [
           id,
           data.name,
@@ -351,6 +351,7 @@ export const db: any = {
           data.time,
           data.categoryIds,
           data.broadcastFormat ?? "image",
+          data.levelId ?? null,
           data.customBroadcastId ?? null,
           data.lastRunKey ?? null,
         ],
