@@ -29,11 +29,11 @@ type LayoutTier = {
 // Each tier trades "more columns" for "shorter image" as the catalogue
 // grows, instead of shrinking a single column down to unreadable rows.
 const LAYOUT_TIERS: LayoutTier[] = [
-  { maxProducts: 50, columns: 2, columnWidth: 520, rowHeight: 62 },
-  { maxProducts: 150, columns: 4, columnWidth: 300, rowHeight: 34 },
-  { maxProducts: 300, columns: 5, columnWidth: 240, rowHeight: 28 },
-  { maxProducts: 400, columns: 5, columnWidth: 240, rowHeight: 28 },
-  { maxProducts: 550, columns: 5, columnWidth: 240, rowHeight: 28 },
+  { maxProducts: 50, columns: 2, columnWidth: 340, rowHeight: 62 },
+  { maxProducts: 150, columns: 4, columnWidth: 260, rowHeight: 34 },
+  { maxProducts: 300, columns: 5, columnWidth: 220, rowHeight: 28 },
+  { maxProducts: 400, columns: 5, columnWidth: 220, rowHeight: 28 },
+  { maxProducts: 550, columns: 5, columnWidth: 220, rowHeight: 28 },
 ];
 
 function pickLayout(count: number): LayoutTier {
