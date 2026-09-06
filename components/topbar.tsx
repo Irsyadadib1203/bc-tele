@@ -73,7 +73,7 @@ export function Topbar({
           <button className="btn btn-ghost" onClick={() => setConfirm({ title: "Ubah tampilan", message: "Terapkan perubahan tema tampilan?", run: changeTheme })}>
             {theme === "dark" ? "☀ Light" : "◐ Dark"}
           </button>
-          <ApiButton url="/api/products/sync" className="btn btn-primary" confirmTitle="Konfirmasi sinkronisasi" confirmMessage="Ambil dan perbarui katalog produk dari API sekarang?">Refresh produk</ApiButton>
+          <ApiButton url="/api/products/sync" className="btn btn-primary" confirm={false}>Refresh produk</ApiButton>
         </div>
       </header>
       {note && <Toast message={note} tone={failed ? "error" : "success"} />}

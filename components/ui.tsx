@@ -24,6 +24,7 @@ export function ApiButton({
   body,
   className = "btn btn-primary",
   onSuccess,
+  confirm = true,
   confirmTitle = "Konfirmasi aksi",
   confirmMessage = "Apakah Anda yakin ingin melanjutkan?",
 }: {
@@ -33,6 +34,7 @@ export function ApiButton({
   body?: unknown;
   className?: string;
   onSuccess?: (data: any) => void;
+  confirm?: boolean;
   confirmTitle?: string;
   confirmMessage?: string;
 }) {
@@ -64,7 +66,7 @@ export function ApiButton({
   return (
     <>
       {note && <Toast message={note} tone={failed ? "error" : "success"} />}
-      <button className={className} onClick={() => setConfirming(true)} disabled={busy}>
+      <button className={className} onClick={() => confirm ? setConfirming(true) : run()} disabled={busy}>
         {busy ? "Memproses..." : children}
       </button>
       {confirming && <ConfirmModal title={confirmTitle} onClose={() => !busy && setConfirming(false)}>

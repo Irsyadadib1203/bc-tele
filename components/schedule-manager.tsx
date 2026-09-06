@@ -46,7 +46,7 @@ export function ScheduleManager({ initial, masterEnabled, customBroadcasts }: { 
       <div className="card-head">
         <div><h2>Jadwal tersimpan</h2><span className="muted" style={{ fontSize: 12 }}>Jadwal dapat mengirim broadcast harga atau satu BC custom.</span></div>
         <div className="actions">
-          <button className={`switch ${master ? "on" : ""}`} onClick={() => setPending({ title: "Konfirmasi jadwal utama", message: `${master ? "Nonaktifkan" : "Aktifkan"} semua jadwal broadcast?`, run: toggleMaster })} title="Aktif/nonaktif semua jadwal" />
+          <button className={`switch ${master ? "on" : ""}`} onClick={toggleMaster} title="Aktif/nonaktif semua jadwal" />
           <button className="btn btn-primary" onClick={() => setOpen(true)}>+ Tambah jadwal</button>
         </div>
       </div>
@@ -66,7 +66,7 @@ function ScheduleRows({ items, customBroadcasts, confirm, call }: { items: Sched
     const custom = schedule.broadcastFormat === "custom" ? customBroadcasts.find((item) => item.id === schedule.customBroadcastId) : null;
     const format = custom ? `BC custom — ${custom.name}` : schedule.broadcastFormat === "custom" ? "BC custom dihapus" : priceFormatNames[schedule.broadcastFormat ?? "image"];
     return <tr key={schedule.id}>
-      <td><button className={`switch ${schedule.enabled ? "on" : ""}`} onClick={() => confirm({ title: "Konfirmasi jadwal", message: `${schedule.enabled ? "Nonaktifkan" : "Aktifkan"} jadwal ${schedule.name}?`, run: () => call({ action: "toggle", id: schedule.id, enabled: !schedule.enabled }) })} /></td>
+      <td><button className={`switch ${schedule.enabled ? "on" : ""}`} onClick={() => call({ action: "toggle", id: schedule.id, enabled: !schedule.enabled })} /></td>
       <td><b>{schedule.name}</b></td><td>{schedule.days.split(",").map((day) => dayNames[day] ?? day).join(", ")}</td><td><span className="tag">{schedule.time} WIB</span></td><td>{format}</td><td>{schedule.broadcastFormat === "custom" ? "Pesan custom" : "Semua kategori pilihan"}</td>
       <td><button className="mini-btn" onClick={() => confirm({ title: "Hapus jadwal", message: `Hapus jadwal ${schedule.name}?`, run: () => call({ action: "delete", id: schedule.id }) })}>Hapus</button></td>
     </tr>;
