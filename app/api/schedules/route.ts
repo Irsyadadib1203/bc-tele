@@ -12,15 +12,22 @@ export async function POST(req: Request) {
         { error: "Waktu dan hari harus diisi" },
         { status: 400 },
       );
-    if (!["image", "text", "both"].includes(broadcastFormat))
+    const customId =
+      typeof broadcastFormat === "string" && broadcastFormat.startsWith("custom:")
+        ? broadcastFormat.slice("custom:".length)
+        : null;
+    if (!["image", "text", "both"].includes(broadcastFormat) && !customId)
       return NextResponse.json({ error: "Format broadcast tidak valid" }, { status: 400 });
+    if (customId && !(await db.customBroadcast.findUnique({ where: { id: customId } })))
+      return NextResponse.json({ error: "BC custom tidak ditemukan" }, { status: 404 });
     await db.broadcastSchedule.create({
       data: {
         name: name || "Jadwal broadcast",
         time,
         days: days.join(","),
         categoryIds: "",
-        broadcastFormat,
+        broadcastFormat: customId ? "custom" : broadcastFormat,
+        customBroadcastId: customId,
         enabled: !!enabled,
       },
     });

@@ -306,6 +306,32 @@ export const db: any = {
     },
   },
 
+  customBroadcast: {
+    findMany: async (_args?: unknown) =>
+      findMany("SELECT * FROM `CustomBroadcast` ORDER BY createdAt ASC"),
+    findUnique: async ({ where: { id } }: { where: { id: string } }) =>
+      findOne("SELECT * FROM `CustomBroadcast` WHERE id = ?", [id]),
+    count: async () =>
+      Number(
+        (await findOne<{ count: number } & DbRow>("SELECT COUNT(*) AS count FROM `CustomBroadcast`"))?.count ?? 0,
+      ),
+    create: async ({ data }: { data: { name: string; content: string } }) => {
+      const id = randomUUID();
+      await execute(
+        "INSERT INTO `CustomBroadcast` (id, name, content, createdAt) VALUES (?, ?, ?, NOW())",
+        [id, data.name, data.content],
+      );
+      return findOne("SELECT * FROM `CustomBroadcast` WHERE id = ?", [id]);
+    },
+    update: async ({ where: { id }, data }: { where: { id: string }; data: Data }) => {
+      const fields = updateFields(data);
+      if (fields) await execute(`UPDATE \`CustomBroadcast\` SET ${fields.assignments} WHERE id = ?`, [...fields.values, id]);
+      return findOne("SELECT * FROM `CustomBroadcast` WHERE id = ?", [id]);
+    },
+    delete: async ({ where: { id } }: { where: { id: string } }) =>
+      execute("DELETE FROM `CustomBroadcast` WHERE id = ?", [id]),
+  },
+
   broadcastSchedule: {
     findMany: async (_args?: unknown) =>
       (
@@ -316,7 +342,7 @@ export const db: any = {
     create: async ({ data }: { data: Data }) => {
       const id = randomUUID();
       await execute(
-        "INSERT INTO `BroadcastSchedule` (id, name, enabled, days, time, categoryIds, broadcastFormat, lastRunKey, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+        "INSERT INTO `BroadcastSchedule` (id, name, enabled, days, time, categoryIds, broadcastFormat, customBroadcastId, lastRunKey, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
         [
           id,
           data.name,
@@ -325,6 +351,7 @@ export const db: any = {
           data.time,
           data.categoryIds,
           data.broadcastFormat ?? "image",
+          data.customBroadcastId ?? null,
           data.lastRunKey ?? null,
         ],
       );

@@ -19,7 +19,8 @@ async function main() {
   await pool.query(`CREATE TABLE IF NOT EXISTS \`Settings\` (id INT PRIMARY KEY, siteUrl VARCHAR(500), apiKey TEXT, selectedLevelId VARCHAR(50), theme VARCHAR(10) DEFAULT 'light', scheduleEnabled BOOLEAN DEFAULT TRUE, botToken TEXT, targetChatId VARCHAR(150), pollingInterval INT DEFAULT 15, caption TEXT, imageCaption TEXT, broadcastFormat VARCHAR(10) DEFAULT 'image', headerTitle VARCHAR(255) DEFAULT 'PRICE UPDATE', headerSubtitle VARCHAR(255) DEFAULT 'Tanggal dan waktu pembaruan otomatis', primaryColor VARCHAR(20) DEFAULT '#5B5BD6', accentColor VARCHAR(20) DEFAULT '#A78BFA', headerImageUrl VARCHAR(1000), updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`PriceLevel\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, isActive BOOLEAN DEFAULT FALSE, apiKey TEXT, feeEnabled BOOLEAN DEFAULT FALSE, feeSmall INT DEFAULT 5, feeMedium INT DEFAULT 10, feeLarge INT DEFAULT 25, feeOverrides TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`ProductCategory\` (id VARCHAR(191) PRIMARY KEY, levelId VARCHAR(191) NOT NULL, title VARCHAR(255) NOT NULL, type VARCHAR(100), selected BOOLEAN DEFAULT FALSE, prefixFilterEnabled BOOLEAN DEFAULT FALSE, excludedPrefixes TEXT, productCount INT DEFAULT 0, products JSON NOT NULL, syncedAt DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY level_title(levelId,title))`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS \`BroadcastSchedule\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, enabled BOOLEAN DEFAULT FALSE, days VARCHAR(100) NOT NULL, time VARCHAR(5) NOT NULL, categoryIds TEXT NOT NULL, broadcastFormat VARCHAR(10) DEFAULT 'image', lastRunKey VARCHAR(32), createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS \`CustomBroadcast\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, content TEXT NOT NULL, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS \`BroadcastSchedule\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, enabled BOOLEAN DEFAULT FALSE, days VARCHAR(100) NOT NULL, time VARCHAR(5) NOT NULL, categoryIds TEXT NOT NULL, broadcastFormat VARCHAR(10) DEFAULT 'image', customBroadcastId VARCHAR(191), lastRunKey VARCHAR(32), createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`ActivityLog\` (id VARCHAR(191) PRIMARY KEY, type VARCHAR(40) NOT NULL, message TEXT NOT NULL, meta JSON, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
   await addColumnIfMissing("PriceLevel", "feeEnabled", "BOOLEAN DEFAULT FALSE");
@@ -29,6 +30,7 @@ async function main() {
   await addColumnIfMissing("PriceLevel", "feeOverrides", "TEXT");
   await addColumnIfMissing("Settings", "imageCaption", "TEXT");
   await addColumnIfMissing("BroadcastSchedule", "broadcastFormat", "VARCHAR(10) DEFAULT 'image'");
+  await addColumnIfMissing("BroadcastSchedule", "customBroadcastId", "VARCHAR(191)");
   await addColumnIfMissing("BroadcastSchedule", "lastRunKey", "VARCHAR(32)");
 
   const user = await db.user.findUnique({ where: { username: "admin" } });
@@ -44,6 +46,9 @@ async function main() {
   if ((await db.priceLevel.count()) === 0) {
     await db.priceLevel.create({ data: { name: "Member" } });
     await db.priceLevel.create({ data: { name: "H2H" } });
+  }
+  if ((await db.customBroadcast.count()) === 0) {
+    await db.customBroadcast.create({ data: { name: "BC Custom 1", content: "" } });
   }
 
   const settings = await db.settings.findUnique();

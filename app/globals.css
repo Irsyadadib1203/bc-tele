@@ -232,6 +232,17 @@ button {
 .profile-logout { width: 100%; padding: 11px 13px; background: #fff; color: #c92e50; text-align: left; font-weight: 700; }
 .profile-logout:hover { background: #fff3f6; }
 .broadcast-selected-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 21px; margin-bottom: 18px; }
+.broadcast-group { margin-bottom: 30px; }
+.broadcast-group-title { display: flex; align-items: baseline; gap: 11px; margin: 0 0 13px; }
+.broadcast-group-title span { color: #5b5bd6; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.broadcast-group-title p { margin: 0; color: var(--muted); font-size: 12px; }
+.custom-broadcast-group { border-top: 1px solid var(--line); padding-top: 26px; }
+.custom-broadcast-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; }
+.custom-broadcast-card { padding: 20px; }
+.custom-broadcast-card .field { margin-top: 0; }
+.custom-broadcast-card .field + .field { margin-top: 17px; }
+.custom-broadcast-help { margin: 8px 0 0; font-size: 12px; }
+.custom-broadcast-actions { align-items: center; margin-top: 18px; }
 .broadcast-selected-card h2 { margin: 0 0 4px; font: 800 16px Manrope; }
 .broadcast-selected-card p { margin: 0; font-size: 12px; }
 .avatar {

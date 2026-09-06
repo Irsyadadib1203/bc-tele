@@ -1,4 +1,5 @@
 import { broadcastCategories, type BroadcastFormat } from "../lib/broadcast";
+import { sendCustomBroadcast } from "../lib/custom-broadcast";
 import { db, pool } from "../lib/mysql";
 
 const POLL_MS = Math.max(5_000, Number(process.env.SCHEDULE_POLLING_MS || 15_000));
@@ -21,14 +22,30 @@ function jakartaNow() {
 }
 
 async function runSchedule(schedule: any, settings: any) {
+  if (!settings.botToken || !settings.targetChatId) {
+    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: koneksi Telegram belum lengkap.` } });
+    return;
+  }
+  if (schedule.broadcastFormat === "custom") {
+    const custom = typeof schedule.customBroadcastId === "string" ? await db.customBroadcast.findUnique({ where: { id: schedule.customBroadcastId } }) : null;
+    if (!custom) {
+      await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: BC custom tidak ditemukan.` } });
+      return;
+    }
+    await db.activityLog.create({ data: { type: "SCHEDULE", message: `Jadwal ${schedule.name} mengirim BC custom ${custom.name}.` } });
+    try {
+      await sendCustomBroadcast(custom, settings);
+      await db.activityLog.create({ data: { type: "SCHEDULE", message: `Jadwal ${schedule.name} selesai mengirim BC custom.` } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Kesalahan worker tidak diketahui";
+      await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} gagal mengirim BC custom: ${message}` } });
+    }
+    return;
+  }
   const levelId = typeof settings.selectedLevelId === "string" ? settings.selectedLevelId : null;
   const categories = levelId ? (await db.productCategory.findMany({ where: { levelId } })).filter((category: any) => category.selected) : [];
   if (!categories.length) {
     await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: belum ada kategori pilihan pada level aktif.` } });
-    return;
-  }
-  if (!settings.botToken || !settings.targetChatId) {
-    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: koneksi Telegram belum lengkap.` } });
     return;
   }
   const selectedFormat = schedule.broadcastFormat === "text" || schedule.broadcastFormat === "both" ? schedule.broadcastFormat : "image";
