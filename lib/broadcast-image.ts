@@ -116,20 +116,16 @@ function displayHeaderLabel(titleValue?: string, levelName?: string) {
   return label.length > 34 ? `${label.slice(0, 33)}…` : label;
 }
 
-/** Estimates the rendered width of the bold Arial header label. SVG is
- * rendered server-side, so it has no browser layout engine to measure text.
- * The extra 38px keeps the white pill balanced with 19px padding per side. */
-function headerPillWidth(label: string, maximum: number) {
-  const glyphWidth = [...label].reduce((total, character) => {
-    if (character === " ") return total + 5;
-    if (character === "•") return total + 8;
-    if ("ilI1|".includes(character)) return total + 5;
-    if ("MW@#".includes(character)) return total + 17;
-    if ("ABCDEFGHJKLMNOPQRSTUVWXYZ0123456789".includes(character)) return total + 12;
-    return total + 10;
-  }, 0);
-  const letterSpacing = Math.max(0, label.length - 1) * 1.5;
-  return Math.min(maximum, Math.ceil(glyphWidth + letterSpacing + 38));
+/** Measures the actual server-rendered font width, then adds exactly 19px of
+ * white space on both sides. This prevents a narrow glyph estimate from
+ * making the right side of the pill look tighter than the left. */
+async function headerPillWidth(label: string, maximum: number) {
+  const measureSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="60"><text x="0" y="30" fill="#000" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">${escapeXml(label)}</text></svg>`;
+  const { info } = await sharp(Buffer.from(measureSvg))
+    .png()
+    .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 0 })
+    .toBuffer({ resolveWithObject: true });
+  return Math.min(maximum, info.width + 38);
 }
 
 /** Creates one compact PNG containing every product in the category, laid
@@ -199,7 +195,7 @@ export async function makeBroadcastImage(
 
   const countLabel = `${orderedProducts.length} produk`;
   const headerLabel = displayHeaderLabel(headerTitle, levelName);
-  const pillWidth = headerPillWidth(headerLabel, width - 260);
+  const pillWidth = await headerPillWidth(headerLabel, width - 260);
 
   const feeNoticeText = feeNotice
     ? `<text x="60" y="${height - 62}" fill="#ffffff" fill-opacity="0.95" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">${escapeXml(productLabel(feeNotice, width - 120))}</text>`
