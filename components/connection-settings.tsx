@@ -88,12 +88,14 @@ export function ConnectionSettings({
           </label>
           <label className="field">
             Target chat / channel ID
-            <input
+            <textarea
               name="targetChatId"
               defaultValue={targetChatId}
-              placeholder="-1001234567890 atau @namachannel"
+              rows={4}
+              placeholder={"-1001234567890\n@namachannel"}
             />
           </label>
+          <p className="muted">Masukkan satu atau beberapa target, satu ID/channel per baris. Koma atau titik koma juga didukung.</p>
           <button className="btn btn-primary" style={{ marginTop: 20 }}>
             Simpan koneksi Telegram
           </button>

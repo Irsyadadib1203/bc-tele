@@ -16,7 +16,7 @@ async function addColumnIfMissing(table: string, column: string, definition: str
 
 async function main() {
   await pool.query(`CREATE TABLE IF NOT EXISTS \`User\` (id VARCHAR(191) PRIMARY KEY, username VARCHAR(191) UNIQUE NOT NULL, passwordHash VARCHAR(255) NOT NULL, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS \`Settings\` (id INT PRIMARY KEY, siteUrl VARCHAR(500), apiKey TEXT, selectedLevelId VARCHAR(50), theme VARCHAR(10) DEFAULT 'light', scheduleEnabled BOOLEAN DEFAULT TRUE, botToken TEXT, targetChatId VARCHAR(150), pollingInterval INT DEFAULT 15, caption TEXT, imageCaption TEXT, broadcastFormat VARCHAR(10) DEFAULT 'image', headerTitle VARCHAR(255) DEFAULT 'PRICE UPDATE', headerSubtitle VARCHAR(255) DEFAULT 'Tanggal dan waktu pembaruan otomatis', primaryColor VARCHAR(20) DEFAULT '#5B5BD6', accentColor VARCHAR(20) DEFAULT '#A78BFA', headerImageUrl VARCHAR(1000), updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS \`Settings\` (id INT PRIMARY KEY, siteUrl VARCHAR(500), apiKey TEXT, selectedLevelId VARCHAR(50), theme VARCHAR(10) DEFAULT 'light', scheduleEnabled BOOLEAN DEFAULT TRUE, botToken TEXT, targetChatId TEXT, pollingInterval INT DEFAULT 15, caption TEXT, imageCaption TEXT, broadcastFormat VARCHAR(10) DEFAULT 'image', headerTitle VARCHAR(255) DEFAULT 'PRICE UPDATE', headerSubtitle VARCHAR(255) DEFAULT 'Tanggal dan waktu pembaruan otomatis', primaryColor VARCHAR(20) DEFAULT '#5B5BD6', accentColor VARCHAR(20) DEFAULT '#A78BFA', headerImageUrl VARCHAR(1000), updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`PriceLevel\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, isActive BOOLEAN DEFAULT FALSE, apiKey TEXT, feeEnabled BOOLEAN DEFAULT FALSE, feeSmall INT DEFAULT 5, feeMedium INT DEFAULT 10, feeLarge INT DEFAULT 25, feeOverrides TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`ProductCategory\` (id VARCHAR(191) PRIMARY KEY, levelId VARCHAR(191) NOT NULL, title VARCHAR(255) NOT NULL, type VARCHAR(100), selected BOOLEAN DEFAULT FALSE, prefixFilterEnabled BOOLEAN DEFAULT FALSE, excludedPrefixes TEXT, productCount INT DEFAULT 0, products JSON NOT NULL, syncedAt DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY level_title(levelId,title))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`CustomBroadcast\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, content TEXT NOT NULL, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
@@ -29,6 +29,7 @@ async function main() {
   await addColumnIfMissing("PriceLevel", "feeLarge", "INT DEFAULT 25");
   await addColumnIfMissing("PriceLevel", "feeOverrides", "TEXT");
   await addColumnIfMissing("Settings", "imageCaption", "TEXT");
+  await pool.query("ALTER TABLE `Settings` MODIFY COLUMN `targetChatId` TEXT");
   await addColumnIfMissing("BroadcastSchedule", "broadcastFormat", "VARCHAR(10) DEFAULT 'image'");
   await addColumnIfMissing("BroadcastSchedule", "levelId", "VARCHAR(191)");
   await addColumnIfMissing("BroadcastSchedule", "customBroadcastId", "VARCHAR(191)");

@@ -2,6 +2,7 @@ import { makeBroadcastImage } from "@/lib/broadcast-image";
 import { priceWithSellerFee } from "@/lib/fee";
 import { db } from "@/lib/mysql";
 import { productsForPriceList } from "@/lib/product-order";
+import { telegramTargetChatIds } from "@/lib/telegram-targets";
 
 type Product = {
   product_code: string;
@@ -12,6 +13,10 @@ export type PriceChangedProduct = Product & { previousPrice: number };
 export type BroadcastFormat = "text" | "image";
 type TelegramResponse = { ok?: boolean; description?: string };
 const TELEGRAM_MAX_LENGTH = 3900;
+
+function telegramTargetError(failures: string[]) {
+  return new Error(`Gagal mengirim ke ${failures.join("; ")}`);
+}
 
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -103,7 +108,8 @@ export async function sendPriceChangeBroadcast(
   changedProducts: PriceChangedProduct[],
   settings: any,
 ) {
-  if (!settings?.botToken || !settings?.targetChatId) {
+  const targets = telegramTargetChatIds(settings);
+  if (!settings?.botToken || !targets.length) {
     throw new Error("Bot Token dan Target Chat ID harus dikonfigurasi.");
   }
   const visibleProducts = includedProducts({ ...category, products: changedProducts }) as PriceChangedProduct[];
@@ -130,13 +136,21 @@ export async function sendPriceChangeBroadcast(
     feeNotice(level),
     String(settings.headerTitle ?? "PRICE UPDATE"),
   );
-  const formData = new FormData();
-  formData.set("chat_id", settings.targetChatId);
-  formData.set("photo", new Blob([image], { type: "image/png" }), `${title}-perubahan-harga.png`);
-  formData.set("caption", caption);
-  formData.set("parse_mode", "HTML");
-  await telegramRequest(`https://api.telegram.org/bot${settings.botToken}/sendPhoto`, { method: "POST", body: formData });
-  await db.activityLog.create({ data: { type: "AUTO_PRICE_CHANGE", message: `BC perubahan harga ${title} berhasil dikirim (${productsWithDifference.length} produk)`, meta: { categoryId: category.id } } });
+  const failures: string[] = [];
+  for (const target of targets) {
+    const formData = new FormData();
+    formData.set("chat_id", target);
+    formData.set("photo", new Blob([image], { type: "image/png" }), `${title}-perubahan-harga.png`);
+    formData.set("caption", caption);
+    formData.set("parse_mode", "HTML");
+    try {
+      await telegramRequest(`https://api.telegram.org/bot${settings.botToken}/sendPhoto`, { method: "POST", body: formData });
+    } catch (error) {
+      failures.push(`${target}: ${error instanceof Error ? error.message : "Telegram menolak pesan"}`);
+    }
+  }
+  if (failures.length) throw telegramTargetError(failures);
+  await db.activityLog.create({ data: { type: "AUTO_PRICE_CHANGE", message: `BC perubahan harga ${title} berhasil dikirim ke ${targets.length} target (${productsWithDifference.length} produk)`, meta: { categoryId: category.id } } });
   return true;
 }
 async function telegramRequest(url: string, init: RequestInit) {
@@ -151,6 +165,8 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
   const template = format === "text" ? settings.caption : settings.imageCaption;
   const caption = String(template ?? `<b>${title}</b>\nHarga terbaru tersedia.`).replaceAll("{category}", escapeHtml(title)).replaceAll("{count}", String(productsWithFee.length));
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
+  const targets = telegramTargetChatIds(settings);
+  if (!targets.length) throw new Error("Target Chat ID harus dikonfigurasi.");
 
   if (format === "text") {
     const lines = productsForPriceBroadcast(productsWithFee).map(
@@ -158,19 +174,35 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
         `${escapeHtml(product.product_code)} = Rp ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`,
     );
     const messages = splitMessages(lines, `${caption}\n`);
-    for (const text of messages) await telegramRequest(`${telegramUrl}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: settings.targetChatId, text, parse_mode: "HTML" }) });
-    await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast teks ${title} berhasil dikirim (${productsWithFee.length} produk)`, meta: { categoryId: category.id } } });
+    const failures: string[] = [];
+    for (const target of targets) {
+      try {
+        for (const text of messages) await telegramRequest(`${telegramUrl}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: target, text, parse_mode: "HTML" }) });
+      } catch (error) {
+        failures.push(`${target}: ${error instanceof Error ? error.message : "Telegram menolak pesan"}`);
+      }
+    }
+    if (failures.length) throw telegramTargetError(failures);
+    await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast teks ${title} berhasil dikirim ke ${targets.length} target (${productsWithFee.length} produk)`, meta: { categoryId: category.id } } });
     return title;
   }
 
   const image = await makeCategoryBroadcastImage(category, settings);
-  const formData = new FormData();
-  formData.set("chat_id", settings.targetChatId);
-  formData.set("photo", new Blob([image], { type: "image/png" }), `${title}.png`);
-  formData.set("caption", caption);
-  formData.set("parse_mode", "HTML");
-  await telegramRequest(`${telegramUrl}/sendPhoto`, { method: "POST", body: formData });
-  await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast gambar ${title} berhasil dikirim (${productsWithFee.length} produk, 1 gambar)`, meta: { categoryId: category.id } } });
+  const failures: string[] = [];
+  for (const target of targets) {
+    const formData = new FormData();
+    formData.set("chat_id", target);
+    formData.set("photo", new Blob([image], { type: "image/png" }), `${title}.png`);
+    formData.set("caption", caption);
+    formData.set("parse_mode", "HTML");
+    try {
+      await telegramRequest(`${telegramUrl}/sendPhoto`, { method: "POST", body: formData });
+    } catch (error) {
+      failures.push(`${target}: ${error instanceof Error ? error.message : "Telegram menolak pesan"}`);
+    }
+  }
+  if (failures.length) throw telegramTargetError(failures);
+  await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast gambar ${title} berhasil dikirim ke ${targets.length} target (${productsWithFee.length} produk, 1 gambar)`, meta: { categoryId: category.id } } });
   return title;
 }
 

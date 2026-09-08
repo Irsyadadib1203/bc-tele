@@ -2,6 +2,7 @@ import { broadcastCategories, type BroadcastFormat } from "../lib/broadcast";
 import { sendCustomBroadcast } from "../lib/custom-broadcast";
 import { db, pool } from "../lib/mysql";
 import { syncSelectedLevel } from "../lib/product-sync";
+import { hasTelegramTargets } from "../lib/telegram-targets";
 
 const POLL_MS = Math.max(5_000, Number(process.env.SCHEDULE_POLLING_MS || 15_000));
 let running = false;
@@ -36,7 +37,7 @@ function jakartaNow() {
 }
 
 async function runSchedule(schedule: any, settings: any) {
-  if (!settings.botToken || !settings.targetChatId) {
+  if (!settings.botToken || !hasTelegramTargets(settings)) {
     await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: koneksi Telegram belum lengkap.` } });
     return;
   }

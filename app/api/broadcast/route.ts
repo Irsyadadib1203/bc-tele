@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/auth";
 import { broadcastCategories, type BroadcastFormat } from "@/lib/broadcast";
 import { db } from "@/lib/mysql";
+import { hasTelegramTargets } from "@/lib/telegram-targets";
 
 export async function POST(request: Request) {
   if (!(await currentUserId())) return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
   const body = (await request.json()) as { categoryId?: unknown; selected?: unknown; format?: unknown };
   const format: BroadcastFormat = body.format === "text" ? "text" : "image";
   const settings = await db.settings.findUnique();
-  if (!settings?.botToken || !settings?.targetChatId) return NextResponse.json({ error: "Bot Token dan Target Chat ID harus dikonfigurasi." }, { status: 400 });
+  if (!settings?.botToken || !hasTelegramTargets(settings)) return NextResponse.json({ error: "Bot Token dan minimal satu Target Chat ID harus dikonfigurasi." }, { status: 400 });
 
   let categories: any[] = [];
   if (typeof body.categoryId === "string") {

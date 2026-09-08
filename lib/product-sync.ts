@@ -1,5 +1,6 @@
 import { sendPriceChangeBroadcast, type PriceChangedProduct } from "@/lib/broadcast";
 import { db } from "@/lib/mysql";
+import { hasTelegramTargets } from "@/lib/telegram-targets";
 
 type Product = {
   product_id: string;
@@ -80,7 +81,7 @@ export async function syncSelectedLevel(settings: any): Promise<ProductSyncResul
         update: { type: items[0].category_type || null, productCount: items.length, products: items, syncedAt: new Date() },
         create: { levelId: level.id, title, type: items[0].category_type || null, productCount: items.length, products: items },
       });
-      if (priceChanges.length && settings?.botToken && settings?.targetChatId) {
+      if (priceChanges.length && settings?.botToken && hasTelegramTargets(settings)) {
         try {
           if (await sendPriceChangeBroadcast(category, priceChanges, settings)) automaticBroadcasts += 1;
         } catch (error) {

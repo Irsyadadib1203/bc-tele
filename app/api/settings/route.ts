@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/mysql";
 import { currentUserId } from "@/lib/auth";
+import { telegramTargetChatIds } from "@/lib/telegram-targets";
 export async function POST(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
@@ -27,6 +28,10 @@ export async function POST(req: Request) {
   ];
   const update: any = {};
   for (const key of allowed) if (key in data) update[key] = data[key] || null;
+  if ("targetChatId" in data) {
+    const targets = telegramTargetChatIds({ targetChatId: data.targetChatId });
+    update.targetChatId = targets.length ? targets.join("\n") : null;
+  }
   if ("pollingInterval" in data)
     update.pollingInterval = Number(data.pollingInterval);
   if ("scheduleEnabled" in data)
