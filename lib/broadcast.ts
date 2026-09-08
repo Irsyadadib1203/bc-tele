@@ -171,7 +171,7 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
   if (format === "text") {
     const lines = productsForPriceBroadcast(productsWithFee).map(
       (product) =>
-        `${escapeHtml(product.product_code)} Rp ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`,
+        `${escapeHtml(product.product_code)} ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`,
     );
     const messages = splitMessages(lines, `${caption}\n`);
     const failures: string[] = [];
