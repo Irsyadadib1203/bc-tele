@@ -79,7 +79,7 @@ function productLabel(value: string, columnWidth: number) {
 function displayDenomination(value: string) {
   const code = value.trim();
   const match = code.match(/^(ML|FF)[\s_-]*(.+)$/i);
-  return match ? `${match[1].toUpperCase()}-${match[2]}` : code;
+  return match ? `${match[1].toUpperCase()}` : code;
 }
 
 function updatedAtLabel(date: Date) {
