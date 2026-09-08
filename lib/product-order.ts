@@ -17,7 +17,7 @@ function isLastInPriceList(product: PriceListProduct) {
   );
 }
 
-function sortPriceListWithMlTwLast(products: PriceListProduct[]): PriceListProduct[] {
+function sortPriceListWithMlTwLast<T extends PriceListProduct>(products: T[]): T[] {
   return [...products].sort((a, b) => {
     const aLast = isLastInPriceList(a);
     const bLast = isLastInPriceList(b);
@@ -28,7 +28,5 @@ function sortPriceListWithMlTwLast(products: PriceListProduct[]): PriceListProdu
 
 /** Keeps standard denominations first for every price-list format. */
 export function productsForPriceList<T extends PriceListProduct>(products: T[]) {
-  return [...products].sort(
-    (left, right) => Number(isLastInPriceList(left)) - Number(isLastInPriceList(right)),
-  );
+  return sortPriceListWithMlTwLast(products);
 }
