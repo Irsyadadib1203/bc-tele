@@ -64,7 +64,7 @@ export function ProductTable({
     );
     const prices = productsForPriceList(visible).map(
       (p: any) =>
-        `${p.product_code} - Rp ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
+        `${p.product_code} = Rp ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
     );
     const text = [
       `DAFTAR HARGA - [${levelName}]`,

@@ -13,7 +13,7 @@ type Product = {
 // a single ever-taller column, so large catalogues stay compact and legible.
 const TELEGRAM_SAFE_MAX_TOTAL = 9_500; // width + height safety ceiling
 const MINIMUM_ROW_HEIGHT = 16;
-const CONTENT_TOP = 260;
+const CONTENT_TOP = 230;
 const FOOTER_SPACE = 64;
 const FOOTER_SPACE_WITH_FEE_NOTICE = 96;
 const SIDE_PADDING = 50;
