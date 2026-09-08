@@ -36,7 +36,7 @@ sudo chmod 600 /etc/bcastly/bcastly.env
 sudo chown root:bcastly /etc/bcastly/bcastly.env
 cd /var/www/bcastly
 sudo -u bcastly npm ci
-sudo -u bcastly npm run db:init
+sudo -u bcastly bash -c 'set -a; . /etc/bcastly/bcastly.env; set +a; npm run db:init'
 sudo -u bcastly npm run build
 ```
 
@@ -64,7 +64,7 @@ sudo certbot --nginx -d DOMAIN_ANDA.com -d www.DOMAIN_ANDA.com
 cd /var/www/bcastly
 sudo -u bcastly git pull
 sudo -u bcastly npm ci
-sudo -u bcastly npm run db:init
+sudo -u bcastly bash -c 'set -a; . /etc/bcastly/bcastly.env; set +a; npm run db:init'
 sudo -u bcastly npm run build
 sudo systemctl restart bcastly
 sudo systemctl restart bc-josjis-worker
