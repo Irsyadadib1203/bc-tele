@@ -17,7 +17,7 @@ async function addColumnIfMissing(table: string, column: string, definition: str
 async function main() {
   await pool.query(`CREATE TABLE IF NOT EXISTS \`User\` (id VARCHAR(191) PRIMARY KEY, username VARCHAR(191) UNIQUE NOT NULL, passwordHash VARCHAR(255) NOT NULL, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`Settings\` (id INT PRIMARY KEY, siteUrl VARCHAR(500), apiKey TEXT, selectedLevelId VARCHAR(50), theme VARCHAR(10) DEFAULT 'light', scheduleEnabled BOOLEAN DEFAULT TRUE, botToken TEXT, targetChatId TEXT, pollingInterval INT DEFAULT 15, caption TEXT, imageCaption TEXT, broadcastFormat VARCHAR(10) DEFAULT 'image', headerTitle VARCHAR(255) DEFAULT 'PRICE UPDATE', headerSubtitle VARCHAR(255) DEFAULT 'Tanggal dan waktu pembaruan otomatis', primaryColor VARCHAR(20) DEFAULT '#5B5BD6', accentColor VARCHAR(20) DEFAULT '#A78BFA', headerImageUrl VARCHAR(1000), updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS \`PriceLevel\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, isActive BOOLEAN DEFAULT FALSE, apiKey TEXT, feeEnabled BOOLEAN DEFAULT FALSE, feeSmall INT DEFAULT 5, feeMedium INT DEFAULT 10, feeLarge INT DEFAULT 25, feeOverrides TEXT, headerTitle VARCHAR(255) DEFAULT 'PRICE UPDATE', primaryColor VARCHAR(20) DEFAULT '#5B5BD6', accentColor VARCHAR(20) DEFAULT '#A78BFA', createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS \`PriceLevel\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, isActive BOOLEAN DEFAULT FALSE, apiKey TEXT, feeEnabled BOOLEAN DEFAULT FALSE, feeSmall INT DEFAULT 5, feeMedium INT DEFAULT 10, feeLarge INT DEFAULT 25, feeOverrides TEXT, caption TEXT, imageCaption TEXT, headerTitle VARCHAR(255) DEFAULT 'PRICE UPDATE', primaryColor VARCHAR(20) DEFAULT '#5B5BD6', accentColor VARCHAR(20) DEFAULT '#A78BFA', createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`ProductCategory\` (id VARCHAR(191) PRIMARY KEY, levelId VARCHAR(191) NOT NULL, title VARCHAR(255) NOT NULL, type VARCHAR(100), selected BOOLEAN DEFAULT FALSE, prefixFilterEnabled BOOLEAN DEFAULT FALSE, excludedPrefixes TEXT, productCount INT DEFAULT 0, products JSON NOT NULL, syncedAt DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY level_title(levelId,title))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`CustomBroadcast\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, content TEXT NOT NULL, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS \`BroadcastSchedule\` (id VARCHAR(191) PRIMARY KEY, name VARCHAR(100) NOT NULL, enabled BOOLEAN DEFAULT FALSE, days VARCHAR(100) NOT NULL, time VARCHAR(5) NOT NULL, categoryIds TEXT NOT NULL, broadcastFormat VARCHAR(10) DEFAULT 'image', levelId VARCHAR(191), customBroadcastId VARCHAR(191), lastRunKey VARCHAR(32), createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`);
@@ -28,6 +28,8 @@ async function main() {
   await addColumnIfMissing("PriceLevel", "feeMedium", "INT DEFAULT 10");
   await addColumnIfMissing("PriceLevel", "feeLarge", "INT DEFAULT 25");
   await addColumnIfMissing("PriceLevel", "feeOverrides", "TEXT");
+  await addColumnIfMissing("PriceLevel", "caption", "TEXT");
+  await addColumnIfMissing("PriceLevel", "imageCaption", "TEXT");
   await addColumnIfMissing("PriceLevel", "headerTitle", "VARCHAR(255)");
   await addColumnIfMissing("PriceLevel", "primaryColor", "VARCHAR(20)");
   await addColumnIfMissing("PriceLevel", "accentColor", "VARCHAR(20)");
@@ -51,6 +53,7 @@ async function main() {
   // Existing installations used one global header. Copy it into every level
   // once so switching to independent designs does not change current output.
   await pool.query("UPDATE `PriceLevel` AS levelItem JOIN `Settings` AS settingsItem ON settingsItem.id = 1 SET levelItem.headerTitle = COALESCE(levelItem.headerTitle, settingsItem.headerTitle, 'PRICE UPDATE'), levelItem.primaryColor = COALESCE(levelItem.primaryColor, settingsItem.primaryColor, '#5B5BD6'), levelItem.accentColor = COALESCE(levelItem.accentColor, settingsItem.accentColor, '#A78BFA') WHERE levelItem.headerTitle IS NULL OR levelItem.primaryColor IS NULL OR levelItem.accentColor IS NULL");
+  await pool.query("UPDATE `PriceLevel` AS levelItem JOIN `Settings` AS settingsItem ON settingsItem.id = 1 SET levelItem.caption = COALESCE(levelItem.caption, settingsItem.caption), levelItem.imageCaption = COALESCE(levelItem.imageCaption, settingsItem.imageCaption) WHERE levelItem.caption IS NULL OR levelItem.imageCaption IS NULL");
   if ((await db.priceLevel.count()) === 0) {
     await db.priceLevel.create({ data: { name: "Member" } });
     await db.priceLevel.create({ data: { name: "H2H" } });

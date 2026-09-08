@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
   const { action, id, name, time, days, enabled, broadcastFormat, levelId } =
     await req.json();
-  if (action === "create") {
+  if (action === "create" || (action === "update" && id)) {
     if (!time || !days?.length)
       return NextResponse.json(
         { error: "Waktu dan hari harus diisi" },
@@ -23,19 +23,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "BC custom tidak ditemukan" }, { status: 404 });
     if (isPriceFormat && (typeof levelId !== "string" || !(await db.priceLevel.findUnique({ where: { id: levelId } }))))
       return NextResponse.json({ error: "Pilih level harga yang valid" }, { status: 400 });
-    await db.broadcastSchedule.create({
-      data: {
-        name: name || "Jadwal broadcast",
-        time,
-        days: days.join(","),
-        categoryIds: "",
-        broadcastFormat: customId ? "custom" : broadcastFormat,
-        levelId: isPriceFormat ? levelId : null,
-        customBroadcastId: customId,
-        enabled: !!enabled,
-      },
-    });
-    return NextResponse.json({ message: "Jadwal broadcast ditambahkan" });
+    const data = {
+      name: name || "Jadwal broadcast",
+      time,
+      days: days.join(","),
+      broadcastFormat: customId ? "custom" : broadcastFormat,
+      levelId: isPriceFormat ? levelId : null,
+      customBroadcastId: customId,
+      enabled: !!enabled,
+    };
+    if (action === "create") {
+      await db.broadcastSchedule.create({ data: { ...data, categoryIds: "" } });
+      return NextResponse.json({ message: "Jadwal broadcast ditambahkan" });
+    }
+    const schedule = await db.broadcastSchedule.findUnique({ where: { id } });
+    if (!schedule) return NextResponse.json({ error: "Jadwal tidak ditemukan" }, { status: 404 });
+    await db.broadcastSchedule.update({ where: { id }, data });
+    return NextResponse.json({ message: "Jadwal broadcast diperbarui" });
   }
   if (action === "toggle" && id) {
     await db.broadcastSchedule.update({

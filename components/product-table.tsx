@@ -164,8 +164,7 @@ export function ProductTable({
                         aria-label="Pilih semua kategori untuk broadcast"
                         title="Pilih semua kategori level ini"
                         onChange={(event) => {
-                          const selected = event.target.checked;
-                          setPending({ title: "Konfirmasi semua kategori", message: `${selected ? "Masukkan" : "Keluarkan"} seluruh ${list.length} kategori pada level ${levelName} ${selected ? "ke" : "dari"} daftar broadcast?`, run: () => saveAll(selected) });
+                          void saveAll(event.target.checked);
                         }}
                       />
                     </th>
@@ -183,8 +182,7 @@ export function ProductTable({
                           type="checkbox"
                           checked={c.selected}
                           onChange={(e) => {
-                            const nextSelected = e.target.checked;
-                            setPending({ title: "Konfirmasi kategori broadcast", message: `${nextSelected ? "Masukkan" : "Keluarkan"} kategori ${c.title} ${nextSelected ? "ke" : "dari"} daftar broadcast?`, run: () => save(c.id, { selected: nextSelected }) });
+                            void save(c.id, { selected: e.target.checked });
                           }}
                         />
                       </td>

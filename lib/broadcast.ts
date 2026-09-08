@@ -56,6 +56,11 @@ function headerDesign(level: any) {
   };
 }
 
+function captionTemplate(level: any, format: BroadcastFormat, fallback: string) {
+  const value = format === "text" ? level?.caption : level?.imageCaption;
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
 function includedProducts(category: any) {
   const prefixes = String(category.excludedPrefixes ?? "")
     .split(",")
@@ -135,7 +140,7 @@ export async function sendPriceChangeBroadcast(
   }).filter((product) => product.priceChange !== 0);
   if (!productsWithDifference.length) return false;
   const title = String(category.title);
-  const caption = String(settings.imageCaption ?? `<b>${title}</b>\nPerubahan harga terbaru.`)
+  const caption = captionTemplate(level, "image", `<b>${title}</b>\nPerubahan harga terbaru.`)
     .replaceAll("{category}", escapeHtml(title))
     .replaceAll("{count}", String(productsWithDifference.length));
   const image = await makeBroadcastImage(
@@ -174,8 +179,10 @@ async function telegramRequest(url: string, init: RequestInit) {
 async function sendCategory(category: any, settings: any, format: BroadcastFormat) {
   const productsWithFee = await productsWithMemberPrice(category);
   const title = String(category.title);
-  const template = format === "text" ? settings.caption : settings.imageCaption;
-  const caption = String(template ?? `<b>${title}</b>\nHarga terbaru tersedia.`).replaceAll("{category}", escapeHtml(title)).replaceAll("{count}", String(productsWithFee.length));
+  const level = typeof category.levelId === "string"
+    ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
+    : null;
+  const caption = captionTemplate(level, format, `<b>${title}</b>\nHarga terbaru tersedia.`).replaceAll("{category}", escapeHtml(title)).replaceAll("{count}", String(productsWithFee.length));
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
   const targets = telegramTargetChatIds(settings);
   if (!targets.length) throw new Error("Target Chat ID harus dikonfigurasi.");
