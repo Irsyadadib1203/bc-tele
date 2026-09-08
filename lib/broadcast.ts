@@ -31,17 +31,24 @@ function matchesExcludedPrefix(product: Product, prefixes: string[]) {
   return prefixes.some((prefix) => product.product_code.toLowerCase().startsWith(prefix));
 }
 
-// Membership and subscription packages read better after the usual top-up
-// denominations. Keep the API order intact within each of the two groups.
-function isMembershipProduct(product: Product) {
+// Membership, subscription, and WDP packages read better after the usual
+// top-up denominations. Keep the API order intact within each group.
+function isLastInPriceList(product: Product) {
   const label = `${product.product_name ?? ""} ${product.product_code}`.toLowerCase();
-  return /membership|member|weekly|monthly|mingguan|bulanan|subscription|langganan/.test(label);
+  return /membership|member|weekly|monthly|mingguan|bulanan|subscription|langganan|wdp|weekly\s*diamond\s*pass|diamond\s*pass/.test(label);
 }
 
-function productsForTextBroadcast(products: Product[]) {
+/** Keep the same product order for text and image broadcasts. */
+function productsForPriceBroadcast(products: Product[]) {
   return [...products].sort(
-    (left, right) => Number(isMembershipProduct(left)) - Number(isMembershipProduct(right)),
+    (left, right) => Number(isLastInPriceList(left)) - Number(isLastInPriceList(right)),
   );
+}
+
+function feeNotice(level: { feeEnabled?: boolean; name?: string | null } | null) {
+  if (!level?.feeEnabled) return undefined;
+  const levelName = String(level.name ?? "seller").trim() || "seller";
+  return `Harga sudah termasuk fee ${levelName}`;
 }
 
 function includedProducts(category: any) {
@@ -83,12 +90,17 @@ export async function makeCategoryBroadcastImage(
   updatedAt = new Date(),
 ) {
   const products = await productsWithMemberPrice(category);
+  const level = typeof category.levelId === "string"
+    ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
+    : null;
   return makeBroadcastImage(
     String(category.title),
-    products,
+    productsForPriceBroadcast(products),
     String(settings.primaryColor ?? "#5B5BD6"),
     String(settings.accentColor ?? "#A78BFA"),
     updatedAt,
+    feeNotice(level),
+    String(settings.headerTitle ?? "PRICE UPDATE"),
   );
 }
 
@@ -119,9 +131,12 @@ export async function sendPriceChangeBroadcast(
     .replaceAll("{count}", String(productsWithDifference.length));
   const image = await makeBroadcastImage(
     title,
-    productsWithDifference,
+    productsForPriceBroadcast(productsWithDifference),
     String(settings.primaryColor ?? "#5B5BD6"),
     String(settings.accentColor ?? "#A78BFA"),
+    undefined,
+    feeNotice(level),
+    String(settings.headerTitle ?? "PRICE UPDATE"),
   );
   const formData = new FormData();
   formData.set("chat_id", settings.targetChatId);
@@ -146,7 +161,7 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
 
   if (format === "text") {
-    const lines = productsForTextBroadcast(productsWithFee).map(
+    const lines = productsForPriceBroadcast(productsWithFee).map(
       (product) =>
         `${escapeHtml(product.product_code)} = Rp ${new Intl.NumberFormat("id-ID").format(product.product_price || 0)}`,
     );

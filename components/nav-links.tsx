@@ -20,6 +20,7 @@ export function NavLinks() {
           key={href}
           href={href}
           className={`nav-link ${pathname.startsWith(href) ? "active" : ""}`}
+          onClick={() => window.dispatchEvent(new Event("close-mobile-menu"))}
         >
           <span className="nav-icon">{icon}</span>
           {name}

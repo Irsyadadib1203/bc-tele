@@ -14,6 +14,9 @@ export default async function DesignPage() {
     ],
     s?.primaryColor || "#5B5BD6",
     s?.accentColor || "#A78BFA",
+    undefined,
+    undefined,
+    s?.headerTitle || "PRICE UPDATE",
   );
   const sampleImageUrl = `data:image/png;base64,${sampleImage.toString("base64")}`;
   return (
@@ -30,7 +33,7 @@ export default async function DesignPage() {
         <ConfirmedForm action="/api/settings" className="card setting-card" confirmTitle="Konfirmasi desain" confirmMessage="Simpan perubahan desain header ini?">
           <h2>Pengaturan header</h2>
           <p className="muted">
-            Perubahan diterapkan pada gambar broadcast berikutnya.
+            Judul dan warna diterapkan pada gambar broadcast berikutnya.
           </p>
           <label className="field">
             Judul header
@@ -58,14 +61,6 @@ export default async function DesignPage() {
               />
             </label>
           </div>
-          <label className="field">
-            URL gambar/logo (opsional)
-            <input
-              name="headerImageUrl"
-              defaultValue={s?.headerImageUrl || ""}
-              placeholder="https://..."
-            />
-          </label>
           <button className="btn btn-primary" style={{ marginTop: 20 }}>
             Simpan desain
           </button>

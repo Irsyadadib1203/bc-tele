@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { ConfirmModal, Toast } from "./ui";
 import { priceWithSellerFee, type FeeConfiguration } from "@/lib/fee";
-import { formatWibDateTime } from "@/lib/time";
+import { formatWibDownloadDateTime } from "@/lib/time";
 type Category = {
   id: string;
   title: string;
@@ -66,9 +66,10 @@ export function ProductTable({
         `${p.product_code} - Rp ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
     );
     const text = [
-      `KATEGORI: ${c.title}`,
-      `LEVEL MEMBER: ${levelName}`,
-      `UPDATE: ${formatWibDateTime(new Date())}`,
+      `DAFTAR HARGA - [${levelName}]`,
+      `Update : ${formatWibDownloadDateTime(new Date())}`,
+      "",
+      `# Kategori - [${c.title}]`,
       "",
       ...prices,
     ].join("\n");

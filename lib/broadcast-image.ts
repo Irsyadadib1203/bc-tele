@@ -71,8 +71,23 @@ function productLabel(value: string, columnWidth: number) {
   return value.length > maxLen ? `${value.slice(0, maxLen - 1)}…` : value;
 }
 
+/**
+ * Show common game denominations consistently in the image, for example
+ * MLH5 becomes ML-H5 and FF5 becomes FF-5. Existing separators are retained.
+ */
+function displayDenomination(value: string) {
+  const code = value.trim();
+  const match = code.match(/^(ML|FF)[\s_-]*(.+)$/i);
+  return match ? `${match[1].toUpperCase()}-${match[2]}` : code;
+}
+
 function updatedAtLabel(date: Date) {
   return `Diperbarui: ${formatWibDateTime(date)}`;
+}
+
+function displayHeaderTitle(value?: string) {
+  const title = value?.trim() || "PRICE UPDATE";
+  return title.length > 28 ? `${title.slice(0, 27)}…` : title;
 }
 
 /** Creates one compact PNG containing every product in the category, laid
@@ -84,6 +99,8 @@ export async function makeBroadcastImage(
   primary: string,
   accent: string,
   updatedAt = new Date(),
+  feeNotice?: string,
+  headerTitle?: string,
 ) {
   if (products.length === 0) {
     throw new Error("Tidak ada produk untuk dibuatkan gambar.");
@@ -128,13 +145,20 @@ export async function makeBroadcastImage(
         ? `<text x="${columnX + columnWidth / 2}" y="${textBaseline}" text-anchor="middle" fill="${difference > 0 ? "#178757" : "#d0445f"}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${differenceLabel}</text>`
         : "";
 
-      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(productLabel(product.product_code, columnWidth))}</text>${differenceText}<text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
+      const denomination = productLabel(displayDenomination(product.product_code), columnWidth);
+
+      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(denomination)}</text>${differenceText}<text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
     })
     .join("");
 
   const countLabel = `${products.length} produk`;
+  const headerLabel = displayHeaderTitle(headerTitle);
+  const headerPillWidth = Math.min(width - 260, Math.max(238, 72 + headerLabel.length * 13));
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="238" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">PRICE UPDATE</text><text x="${width - 54}" y="76" text-anchor="end" fill="#ffffff" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600">${escapeXml(countLabel)}</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title, width - 116))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${rows}<text x="60" y="${height - 42}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
+  const feeNoticeText = feeNotice
+    ? `<text x="60" y="235" fill="#ffffff" fill-opacity="0.95" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">${escapeXml(productLabel(feeNotice, width - 120))}</text>`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="${headerPillWidth}" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">${escapeXml(headerLabel)}</text><text x="${width - 54}" y="76" text-anchor="end" fill="#ffffff" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600">${escapeXml(countLabel)}</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title, width - 116))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${feeNoticeText}${rows}<text x="60" y="${height - 42}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
 
   return sharp(Buffer.from(svg)).png().toBuffer();
 }

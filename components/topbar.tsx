@@ -16,11 +16,26 @@ export function Topbar({
   useEffect(() => {
     document.body.dataset.theme = theme;
   }, [theme]);
-  const [add, setAdd] = useState(false),
+  const [menuOpen, setMenuOpen] = useState(false),
+    [add, setAdd] = useState(false),
     [name, setName] = useState(""),
     [note, setNote] = useState(""),
     [failed, setFailed] = useState(false),
     [confirm, setConfirm] = useState<{ title: string; message: string; run: () => void } | null>(null);
+  useEffect(() => {
+    const closeMenu = () => setMenuOpen(false);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("close-mobile-menu", closeMenu);
+    document.body.classList.toggle("menu-open", menuOpen);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("close-mobile-menu", closeMenu);
+      document.body.classList.remove("menu-open");
+    };
+  }, [menuOpen]);
   async function call(url: string, body: unknown) {
     try {
       const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -54,20 +69,31 @@ export function Topbar({
   return (
     <>
       <header className="topbar">
-        <div className="levels">
-          <span className="level-label">LEVEL HARGA</span>
-          {levels.map((l) => (
-            <button
-              key={l.id}
-              className={`level-tab ${l.id === selectedLevelId ? "active" : ""}`}
-              onClick={() => selectLevel(l.id)}
-            >
-              {l.name}
-            </button>
-          ))}
-          <button className="round-add" onClick={() => setAdd(true)}>
-            +
+        <div className="topbar-navigation">
+          <button
+            className="menu-toggle"
+            type="button"
+            aria-label={menuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            ☰
           </button>
+          <div className="levels">
+            <span className="level-label">LEVEL HARGA</span>
+            {levels.map((l) => (
+              <button
+                key={l.id}
+                className={`level-tab ${l.id === selectedLevelId ? "active" : ""}`}
+                onClick={() => selectLevel(l.id)}
+              >
+                {l.name}
+              </button>
+            ))}
+            <button className="round-add" onClick={() => setAdd(true)} aria-label="Tambah level harga">
+              +
+            </button>
+          </div>
         </div>
         <div className="top-actions">
           <button className="btn btn-ghost" onClick={() => setConfirm({ title: "Ubah tampilan", message: "Terapkan perubahan tema tampilan?", run: changeTheme })}>
@@ -76,6 +102,7 @@ export function Topbar({
           <ApiButton url="/api/products/sync" className="btn btn-primary" confirm={false}>Refresh produk</ApiButton>
         </div>
       </header>
+      <button className="mobile-nav-backdrop" type="button" aria-label="Tutup menu navigasi" onClick={() => setMenuOpen(false)} />
       {note && <Toast message={note} tone={failed ? "error" : "success"} />}
       {confirm && <ConfirmModal title={confirm.title} onClose={() => setConfirm(null)}><div className="card-body"><p style={{ margin: 0 }}>{confirm.message}</p></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setConfirm(null)}>Batal</button><button className="btn btn-primary" onClick={() => { const run = confirm.run; setConfirm(null); run(); }}>Ya, lanjutkan</button></div></ConfirmModal>}
       {add && (
