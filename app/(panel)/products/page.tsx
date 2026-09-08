@@ -29,6 +29,7 @@ export default async function ProductsPage() {
           ...c,
           products: c.products as any[],
         }))}
+        levelId={level?.id || null}
         levelName={level?.name || "-"}
         feeConfiguration={level ?? {}}
       />

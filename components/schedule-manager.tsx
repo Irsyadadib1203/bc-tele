@@ -69,7 +69,7 @@ function ScheduleRows({ items, customBroadcasts, levels, confirm, call }: { item
     const format = custom ? `BC custom — ${custom.name}` : schedule.broadcastFormat === "custom" ? "BC custom dihapus" : priceFormatNames[schedule.broadcastFormat ?? "image"];
     return <tr key={schedule.id}>
       <td><button className={`switch ${schedule.enabled ? "on" : ""}`} onClick={() => call({ action: "toggle", id: schedule.id, enabled: !schedule.enabled })} /></td>
-      <td><b>{schedule.name}</b></td><td>{schedule.days.split(",").map((day) => dayNames[day] ?? day).join(", ")}</td><td><span className="tag">{schedule.time} WIB</span></td><td>{format}</td><td>{schedule.broadcastFormat === "custom" ? "Pesan custom" : level ? `${level.name} · kategori pilihan` : "Level aktif (jadwal lama)"}</td>
+      <td><b>{schedule.name}</b></td><td>{schedule.days.split(",").map((day) => dayNames[day] ?? day).join(", ")}</td><td><span className="tag">{schedule.time} WIB</span></td><td>{format}</td><td>{schedule.broadcastFormat === "custom" ? "Pesan custom" : level ? `${level.name} · kategori pilihan` : "Level belum dipilih (jadwal lama)"}</td>
       <td><button className="mini-btn" onClick={() => confirm({ title: "Hapus jadwal", message: `Hapus jadwal ${schedule.name}?`, run: () => call({ action: "delete", id: schedule.id }) })}>Hapus</button></td>
     </tr>;
   })}</tbody></table></div>;

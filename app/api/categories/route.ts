@@ -4,9 +4,15 @@ import { currentUserId } from "@/lib/auth";
 export async function PATCH(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const { id, selected, prefixFilterEnabled, excludedPrefixes } =
+  const { id, levelId, selected, prefixFilterEnabled, excludedPrefixes } =
     await req.json();
-  if (!id)
+  if (typeof levelId === "string" && typeof selected === "boolean") {
+    const level = await prisma.priceLevel.findUnique({ where: { id: levelId } });
+    if (!level) return NextResponse.json({ error: "Level harga tidak ditemukan" }, { status: 404 });
+    const result = await prisma.productCategory.updateMany({ where: { levelId }, data: { selected } });
+    return NextResponse.json({ message: `${result.count} kategori pada level ${level.name} ${selected ? "dipilih" : "dikosongkan"}` });
+  }
+  if (typeof id !== "string")
     return NextResponse.json(
       { error: "Kategori tidak ditemukan" },
       { status: 400 },

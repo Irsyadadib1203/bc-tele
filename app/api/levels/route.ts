@@ -13,19 +13,8 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     const settings = await db.settings.findUnique();
-    const sourceLevel = typeof settings?.selectedLevelId === "string"
-      ? await db.priceLevel.findUnique({ where: { id: settings.selectedLevelId } })
-      : null;
     const level = await db.priceLevel.create({
       data: { name: name.trim() },
-    });
-    await db.priceLevel.update({
-      where: { id: level.id },
-      data: {
-        headerTitle: sourceLevel?.headerTitle ?? settings?.headerTitle ?? "PRICE UPDATE",
-        primaryColor: sourceLevel?.primaryColor ?? settings?.primaryColor ?? "#5B5BD6",
-        accentColor: sourceLevel?.accentColor ?? settings?.accentColor ?? "#A78BFA",
-      },
     });
     if (!settings?.selectedLevelId)
       await db.settings.upsert({

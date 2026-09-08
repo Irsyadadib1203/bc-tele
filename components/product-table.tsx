@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmModal, Toast } from "./ui";
 import { priceWithSellerFee, type FeeConfiguration } from "@/lib/fee";
 import { productsForPriceList } from "@/lib/product-order";
@@ -16,10 +16,12 @@ type Category = {
 };
 export function ProductTable({
   categories,
+  levelId,
   levelName,
   feeConfiguration,
 }: {
   categories: Category[];
+  levelId: string | null;
   levelName: string;
   feeConfiguration: FeeConfiguration;
 }) {
@@ -29,11 +31,20 @@ export function ProductTable({
   const [note, setNote] = useState("");
   const [failed, setFailed] = useState(false);
   const [pending, setPending] = useState<{ title: string; message: string; run: () => void } | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
   const filtered = useMemo(
     () =>
       list.filter((c) => c.title.toLowerCase().includes(term.toLowerCase())),
     [list, term],
   );
+  const selectedCount = list.filter((category) => category.selected).length;
+  const allSelected = list.length > 0 && selectedCount === list.length;
+  useEffect(() => {
+    setList(categories);
+  }, [categories]);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = selectedCount > 0 && !allSelected;
+  }, [selectedCount, allSelected]);
   async function save(id: string, changes: Partial<Category>) {
     try {
       const r = await fetch("/api/categories", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...changes }) });
@@ -46,6 +57,25 @@ export function ProductTable({
       setList((xs) => xs.map((x) => (x.id === id ? { ...x, ...changes } : x)));
       setFailed(false);
       setNote(d.message || "Pengaturan kategori disimpan");
+      setTimeout(() => setNote(""), 2200);
+    } catch {
+      setFailed(true);
+      setNote("Tidak dapat terhubung ke server");
+    }
+  }
+  async function saveAll(selected: boolean) {
+    if (!levelId) return;
+    try {
+      const r = await fetch("/api/categories", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ levelId, selected }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setFailed(true);
+        setNote(d.error || "Gagal memperbarui kategori broadcast");
+        return;
+      }
+      setList((items) => items.map((item) => ({ ...item, selected })));
+      setFailed(false);
+      setNote(d.message || "Kategori broadcast diperbarui");
       setTimeout(() => setNote(""), 2200);
     } catch {
       setFailed(true);
@@ -112,20 +142,33 @@ export function ProductTable({
               />
             </label>
             <span className="muted">
-              Centang kolom BC untuk memasukkan kategori ke broadcast.
+              Centang kolom BC untuk memasukkan kategori level ini ke broadcast.
             </span>
           </div>
           {!list.length ? (
             <div className="empty">
-              Belum ada produk. Konfigurasikan API lalu klik Refresh produk
-              manual di Dashboard.
+              Belum ada produk. Konfigurasikan API pada level ini, lalu klik
+              Refresh semua level di header.
             </div>
           ) : (
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>BC</th>
+                    <th>
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allSelected}
+                        disabled={!list.length || !levelId}
+                        aria-label="Pilih semua kategori untuk broadcast"
+                        title="Pilih semua kategori level ini"
+                        onChange={(event) => {
+                          const selected = event.target.checked;
+                          setPending({ title: "Konfirmasi semua kategori", message: `${selected ? "Masukkan" : "Keluarkan"} seluruh ${list.length} kategori pada level ${levelName} ${selected ? "ke" : "dari"} daftar broadcast?`, run: () => saveAll(selected) });
+                        }}
+                      />
+                    </th>
                     <th>Nama kategori</th>
                     <th>Jumlah produk</th>
                     <th>Filter awalan (prefix)</th>

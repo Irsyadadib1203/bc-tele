@@ -48,11 +48,11 @@ function feeNotice(level: { feeEnabled?: boolean; name?: string | null } | null)
   return `Harga sudah termasuk fee ${levelName}`;
 }
 
-function headerDesign(level: any, settings: any) {
+function headerDesign(level: any) {
   return {
-    primaryColor: String(level?.primaryColor ?? settings?.primaryColor ?? "#5B5BD6"),
-    accentColor: String(level?.accentColor ?? settings?.accentColor ?? "#A78BFA"),
-    headerTitle: String(level?.headerTitle ?? settings?.headerTitle ?? "PRICE UPDATE"),
+    primaryColor: String(level?.primaryColor ?? "#5B5BD6"),
+    accentColor: String(level?.accentColor ?? "#A78BFA"),
+    headerTitle: String(level?.headerTitle ?? "PRICE UPDATE"),
   };
 }
 
@@ -98,7 +98,7 @@ export async function makeCategoryBroadcastImage(
   const level = typeof category.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
     : null;
-  const design = headerDesign(level, settings);
+  const design = headerDesign(level);
   return makeBroadcastImage(
     String(category.title),
     productsForPriceBroadcast(products),
@@ -127,7 +127,7 @@ export async function sendPriceChangeBroadcast(
   const level = typeof category.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
     : null;
-  const design = headerDesign(level, settings);
+  const design = headerDesign(level);
   const productsWithDifference = visibleProducts.map((product) => {
     const newPrice = priceWithSellerFee(product.product_price, level ?? {}, product);
     const oldPrice = priceWithSellerFee(product.previousPrice, level ?? {}, product);

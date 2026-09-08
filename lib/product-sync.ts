@@ -37,17 +37,19 @@ export type ProductSyncResult = {
   automaticBroadcastFailures: number;
 };
 
-/** Refreshes the current level and emits image notices only for existing
- * products whose final displayed price has changed. */
-export async function syncSelectedLevel(settings: any): Promise<ProductSyncResult> {
-  const selectedId = typeof settings?.selectedLevelId === "string" ? settings.selectedLevelId : null;
-  const level = selectedId
-    ? await db.priceLevel.findUnique({ where: { id: selectedId } })
-    : await db.priceLevel.findFirst();
+export type ProductSyncAllResult = {
+  synced: ProductSyncResult[];
+  skipped: string[];
+  failed: { levelName: string; message: string }[];
+};
+
+/** Refreshes one explicitly supplied level. Its products, selections, and
+ * price-change notices never depend on which level is open in the panel. */
+export async function syncLevel(level: any, settings: any): Promise<ProductSyncResult> {
   const siteUrl = process.env.PRODUCTS_SITE_URL;
   if (!siteUrl) throw new Error("PRODUCTS_SITE_URL belum diatur di backend (.env).");
-  if (!level || typeof level.id !== "string" || typeof level.name !== "string" || typeof level.apiKey !== "string" || !level.apiKey) {
-    throw new Error("API Key untuk level harga yang dipilih belum diisi.");
+  if (!level || typeof level.id !== "string" || typeof level.name !== "string" || typeof level.apiKey !== "string" || !level.apiKey.trim()) {
+    throw new Error("API Key untuk level ini belum diisi.");
   }
 
   await db.activityLog.create({ data: { type: "SYNC_START", message: `[Level ${level.name}] Fetching produk dari SPL API...` } });
@@ -98,4 +100,38 @@ export async function syncSelectedLevel(settings: any): Promise<ProductSyncResul
     await db.activityLog.create({ data: { type: "ERROR", message: `[Level ${level?.name || "aktif"}] Refresh gagal: ${message}` } });
     throw new Error(message);
   }
+}
+
+/** Refreshes every configured level independently. Levels without an API key
+ * are skipped so one unfinished level cannot stop the others. */
+export async function syncAllLevels(settings: any): Promise<ProductSyncAllResult> {
+  const levels = await db.priceLevel.findMany();
+  const result: ProductSyncAllResult = { synced: [], skipped: [], failed: [] };
+
+  for (const level of levels) {
+    if (typeof level?.apiKey !== "string" || !level.apiKey.trim()) {
+      result.skipped.push(String(level?.name ?? "Tanpa nama"));
+      continue;
+    }
+    try {
+      result.synced.push(await syncLevel(level, settings));
+    } catch (error) {
+      result.failed.push({
+        levelName: String(level?.name ?? "Tanpa nama"),
+        message: error instanceof Error ? error.message : "Gagal menyinkronkan level",
+      });
+    }
+  }
+
+  return result;
+}
+
+/** @deprecated Use syncLevel or syncAllLevels. Kept for integrations that
+ * intentionally refresh only the level currently selected in the panel. */
+export async function syncSelectedLevel(settings: any): Promise<ProductSyncResult> {
+  const selectedId = typeof settings?.selectedLevelId === "string" ? settings.selectedLevelId : null;
+  const level = selectedId
+    ? await db.priceLevel.findUnique({ where: { id: selectedId } })
+    : await db.priceLevel.findFirst();
+  return syncLevel(level, settings);
 }

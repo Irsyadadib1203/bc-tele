@@ -8,17 +8,19 @@ export default async function Dashboard() {
         where: { id: settings.selectedLevelId },
       })
     : await prisma.priceLevel.findFirst({ orderBy: { createdAt: "asc" } });
-  const [rawCategories, rawLogs] = await Promise.all([
+  const [rawCategories, rawLogs, levels] = await Promise.all([
     level
       ? prisma.productCategory.findMany({ where: { levelId: level.id } })
       : [],
     prisma.activityLog.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
+    prisma.priceLevel.findMany(),
   ]);
   const categories: any[] = rawCategories,
     logs: any[] = rawLogs,
     selected = categories.filter((c) => c.selected).length,
     productCount = categories.reduce((n, c) => n + c.productCount, 0),
-    configured = !!process.env.PRODUCTS_SITE_URL && !!level?.apiKey;
+    configuredLevels = levels.filter((item: any) => typeof item.apiKey === "string" && item.apiKey.trim()).length,
+    configured = !!process.env.PRODUCTS_SITE_URL && configuredLevels > 0;
   return (
     <main className="main">
       <div className="page-head">
@@ -63,7 +65,7 @@ export default async function Dashboard() {
           </div>
           <div className="card-body">
             <p className="muted" style={{ marginTop: 0 }}>
-              Atur interval pengambilan produk dari API.
+              Semua level yang sudah memiliki API key akan diperbarui otomatis dengan interval ini.
             </p>
             <ConfirmedForm action="/api/settings" className="inline-fields" confirmTitle="Konfirmasi interval" confirmMessage="Simpan interval pengambilan produk yang baru?">
               <label className="field">
@@ -86,7 +88,7 @@ export default async function Dashboard() {
                 <div className="sync-row">
                   <span className="sync-dot" />
                   <div>
-                    <b>Koneksi API siap untuk {level?.name}</b>
+                    <b>Auto refresh siap untuk {configuredLevels} level</b>
                     <div className="muted">
                       Site URL disimpan aman di backend.
                     </div>
@@ -98,8 +100,8 @@ export default async function Dashboard() {
                   <div>
                     <b>API belum dikonfigurasi</b>
                     <div className="muted">
-                      Isi PRODUCTS_SITE_URL di .env dan API Key pada level
-                      terpilih.
+                      Isi PRODUCTS_SITE_URL di .env dan API Key pada setiap
+                      level yang ingin diperbarui otomatis.
                     </div>
                   </div>
                 </div>

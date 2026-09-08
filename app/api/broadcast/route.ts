@@ -6,7 +6,7 @@ import { hasTelegramTargets } from "@/lib/telegram-targets";
 
 export async function POST(request: Request) {
   if (!(await currentUserId())) return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const body = (await request.json()) as { categoryId?: unknown; selected?: unknown; format?: unknown };
+  const body = (await request.json()) as { categoryId?: unknown; selected?: unknown; levelId?: unknown; format?: unknown };
   const format: BroadcastFormat = body.format === "text" ? "text" : "image";
   const settings = await db.settings.findUnique();
   if (!settings?.botToken || !hasTelegramTargets(settings)) return NextResponse.json({ error: "Bot Token dan minimal satu Target Chat ID harus dikonfigurasi." }, { status: 400 });
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const category = await db.productCategory.findUnique({ where: { id: body.categoryId } });
     if (category) categories = [category];
   } else if (body.selected === true) {
-    const levelId = typeof settings.selectedLevelId === "string" ? settings.selectedLevelId : null;
+    const levelId = typeof body.levelId === "string" ? body.levelId : null;
     if (levelId) categories = (await db.productCategory.findMany({ where: { levelId } })).filter((category: any) => category.selected);
   }
   if (!categories.length) return NextResponse.json({ error: body.selected ? "Belum ada kategori yang dicentang untuk broadcast." : "Kategori tidak ditemukan." }, { status: 400 });

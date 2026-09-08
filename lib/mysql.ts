@@ -264,6 +264,16 @@ export const db: any = {
         await findOne("SELECT * FROM `ProductCategory` WHERE id = ?", [id]),
       );
     },
+    updateMany: async ({ where, data }: { where: Data; data: Data }) => {
+      const fields = updateFields(data);
+      const keys = Object.keys(where);
+      if (!fields || !keys.length) return { count: 0 };
+      const result = await execute(
+        `UPDATE \`ProductCategory\` SET ${fields.assignments} WHERE ${keys.map((key) => `\`${key}\` = ?`).join(" AND ")}`,
+        [...fields.values, ...keys.map((key) => where[key])],
+      );
+      return { count: result.affectedRows };
+    },
     deleteMany: async ({
       where: { levelId },
     }: {

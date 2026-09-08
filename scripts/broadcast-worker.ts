@@ -1,7 +1,7 @@
 import { broadcastCategories, type BroadcastFormat } from "../lib/broadcast";
 import { sendCustomBroadcast } from "../lib/custom-broadcast";
 import { db, pool } from "../lib/mysql";
-import { syncSelectedLevel } from "../lib/product-sync";
+import { syncAllLevels } from "../lib/product-sync";
 import { hasTelegramTargets } from "../lib/telegram-targets";
 
 const POLL_MS = Math.max(5_000, Number(process.env.SCHEDULE_POLLING_MS || 15_000));
@@ -13,8 +13,10 @@ async function syncProductsWhenDue(settings: any) {
   if (Date.now() - lastProductSyncAt < intervalMinutes * 60_000) return;
   lastProductSyncAt = Date.now();
   try {
-    const result = await syncSelectedLevel(settings);
-    console.log(`Product sync complete: ${result.productCount} products, ${result.automaticBroadcasts} price-change broadcasts.`);
+    const result = await syncAllLevels(settings);
+    const products = result.synced.reduce((total, level) => total + level.productCount, 0);
+    const broadcasts = result.synced.reduce((total, level) => total + level.automaticBroadcasts, 0);
+    console.log(`Product sync complete: ${products} products across ${result.synced.length} levels, ${broadcasts} price-change broadcasts.`);
   } catch (error) {
     console.error("Automatic product sync failed:", error);
   }
@@ -57,16 +59,16 @@ async function runSchedule(schedule: any, settings: any) {
     }
     return;
   }
-  // New schedules pin their price level. The global active level is used only
-  // for legacy schedules created before levelId was introduced.
-  const levelId = typeof schedule.levelId === "string"
-    ? schedule.levelId
-    : typeof settings.selectedLevelId === "string"
-      ? settings.selectedLevelId
-      : null;
+  // Every price schedule is pinned to its own level. Never fall back to the
+  // panel's active level: changing tabs must not redirect an existing job.
+  const levelId = typeof schedule.levelId === "string" ? schedule.levelId : null;
+  if (!levelId) {
+    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: jadwal lama belum memiliki level harga.` } });
+    return;
+  }
   const categories = levelId ? (await db.productCategory.findMany({ where: { levelId } })).filter((category: any) => category.selected) : [];
   if (!categories.length) {
-    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: belum ada kategori pilihan pada level aktif.` } });
+    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: belum ada kategori pilihan pada level jadwal ini.` } });
     return;
   }
   const selectedFormat = schedule.broadcastFormat === "text" || schedule.broadcastFormat === "both" ? schedule.broadcastFormat : "image";
