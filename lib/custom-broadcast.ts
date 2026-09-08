@@ -19,7 +19,10 @@ export async function sendCustomBroadcast(customBroadcast: any, settings: any) {
   if (content.length > TELEGRAM_MAX_LENGTH) {
     throw new Error(`Isi BC custom maksimal ${TELEGRAM_MAX_LENGTH} karakter.`);
   }
-  const targets = telegramTargetChatIds(settings);
+  const level = typeof customBroadcast?.levelId === "string"
+    ? await db.priceLevel.findUnique({ where: { id: customBroadcast.levelId } })
+    : null;
+  const targets = telegramTargetChatIds(level);
   if (!settings?.botToken || !targets.length) {
     throw new Error("Bot Token dan Target Chat ID harus dikonfigurasi.");
   }

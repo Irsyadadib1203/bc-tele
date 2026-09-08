@@ -20,7 +20,6 @@ export default async function ConnectionPage() {
       <ConnectionSettings
         level={level}
         botToken={settings?.botToken || ""}
-        targetChatId={settings?.targetChatId || ""}
       />
     </main>
   );

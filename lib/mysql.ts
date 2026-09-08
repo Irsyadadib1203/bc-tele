@@ -66,6 +66,7 @@ function toLevel(row: DbRow | null) {
     ? {
         ...row,
         isActive: Boolean(row.isActive),
+        scheduleEnabled: Boolean(row.scheduleEnabled),
         feeEnabled: Boolean(row.feeEnabled),
         feeOverrides: parseJson(row.feeOverrides),
       }
@@ -317,19 +318,25 @@ export const db: any = {
   },
 
   customBroadcast: {
-    findMany: async (_args?: unknown) =>
-      findMany("SELECT * FROM `CustomBroadcast` ORDER BY createdAt ASC"),
+    findMany: async ({ where = {} }: { where?: Data } = {}) => {
+      const keys = Object.keys(where);
+      const predicate = keys.length ? ` WHERE ${keys.map((key) => `\`${key}\` = ?`).join(" AND ")}` : "";
+      return findMany(`SELECT * FROM \`CustomBroadcast\`${predicate} ORDER BY createdAt ASC`, keys.map((key) => where[key]));
+    },
     findUnique: async ({ where: { id } }: { where: { id: string } }) =>
       findOne("SELECT * FROM `CustomBroadcast` WHERE id = ?", [id]),
-    count: async () =>
-      Number(
-        (await findOne<{ count: number } & DbRow>("SELECT COUNT(*) AS count FROM `CustomBroadcast`"))?.count ?? 0,
-      ),
-    create: async ({ data }: { data: { name: string; content: string } }) => {
+    count: async ({ where = {} }: { where?: Data } = {}) => {
+      const keys = Object.keys(where);
+      const predicate = keys.length ? ` WHERE ${keys.map((key) => `\`${key}\` = ?`).join(" AND ")}` : "";
+      return Number(
+        (await findOne<{ count: number } & DbRow>(`SELECT COUNT(*) AS count FROM \`CustomBroadcast\`${predicate}`, keys.map((key) => where[key])))?.count ?? 0,
+      );
+    },
+    create: async ({ data }: { data: { levelId: string; name: string; content: string } }) => {
       const id = randomUUID();
       await execute(
-        "INSERT INTO `CustomBroadcast` (id, name, content, createdAt) VALUES (?, ?, ?, NOW())",
-        [id, data.name, data.content],
+        "INSERT INTO `CustomBroadcast` (id, levelId, name, content, createdAt) VALUES (?, ?, ?, ?, NOW())",
+        [id, data.levelId, data.name, data.content],
       );
       return findOne("SELECT * FROM `CustomBroadcast` WHERE id = ?", [id]);
     },
@@ -343,12 +350,11 @@ export const db: any = {
   },
 
   broadcastSchedule: {
-    findMany: async (_args?: unknown) =>
-      (
-        await findMany(
-          "SELECT * FROM `BroadcastSchedule` ORDER BY createdAt DESC",
-        )
-      ).map((row) => toSchedule(row)!),
+    findMany: async ({ where = {} }: { where?: Data } = {}) => {
+      const keys = Object.keys(where);
+      const predicate = keys.length ? ` WHERE ${keys.map((key) => `\`${key}\` = ?`).join(" AND ")}` : "";
+      return (await findMany(`SELECT * FROM \`BroadcastSchedule\`${predicate} ORDER BY createdAt DESC`, keys.map((key) => where[key]))).map((row) => toSchedule(row)!);
+    },
     create: async ({ data }: { data: Data }) => {
       const id = randomUUID();
       await execute(

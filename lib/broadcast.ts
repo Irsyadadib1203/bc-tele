@@ -5,6 +5,7 @@ import { productsForPriceList } from "@/lib/product-order";
 import { telegramTargetChatIds } from "@/lib/telegram-targets";
 
 type Product = {
+  product_id?: string;
   product_code: string;
   product_price: number;
   product_name?: string;
@@ -54,6 +55,12 @@ function headerDesign(level: any) {
     accentColor: String(level?.accentColor ?? "#A78BFA"),
     headerTitle: String(level?.headerTitle ?? "PRICE UPDATE"),
   };
+}
+
+function productKey(product: { product_id?: unknown; product_code?: unknown }) {
+  return typeof product.product_id === "string" && product.product_id
+    ? `id:${product.product_id}`
+    : `code:${String(product.product_code ?? "")}`;
 }
 
 function captionTemplate(level: any, format: BroadcastFormat, fallback: string) {
@@ -123,22 +130,24 @@ export async function sendPriceChangeBroadcast(
   changedProducts: PriceChangedProduct[],
   settings: any,
 ) {
-  const targets = telegramTargetChatIds(settings);
-  if (!settings?.botToken || !targets.length) {
-    throw new Error("Bot Token dan Target Chat ID harus dikonfigurasi.");
-  }
-  const visibleProducts = includedProducts({ ...category, products: changedProducts }) as PriceChangedProduct[];
-  if (!visibleProducts.length) return false;
   const level = typeof category.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
     : null;
+  const targets = telegramTargetChatIds(level);
+  if (!settings?.botToken || !targets.length) {
+    throw new Error("Bot Token dan Target Chat ID harus dikonfigurasi.");
+  }
+  const visibleProducts = includedProducts(category) as Product[];
+  if (!visibleProducts.length) return false;
   const design = headerDesign(level);
+  const previousPrices = new Map(changedProducts.map((product) => [productKey(product), product.previousPrice]));
   const productsWithDifference = visibleProducts.map((product) => {
     const newPrice = priceWithSellerFee(product.product_price, level ?? {}, product);
-    const oldPrice = priceWithSellerFee(product.previousPrice, level ?? {}, product);
-    return { ...product, product_price: newPrice, priceChange: newPrice - oldPrice };
-  }).filter((product) => product.priceChange !== 0);
-  if (!productsWithDifference.length) return false;
+    const previousPrice = previousPrices.get(productKey(product));
+    const oldPrice = previousPrice === undefined ? null : priceWithSellerFee(previousPrice, level ?? {}, product);
+    return { ...product, product_price: newPrice, ...(oldPrice === null ? {} : { priceChange: newPrice - oldPrice }) };
+  });
+  if (!productsWithDifference.some((product) => product.priceChange !== undefined && product.priceChange !== 0)) return false;
   const title = String(category.title);
   const caption = captionTemplate(level, "image", `<b>${title}</b>\nPerubahan harga terbaru.`)
     .replaceAll("{category}", escapeHtml(title))
@@ -184,7 +193,7 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
     : null;
   const caption = captionTemplate(level, format, `<b>${title}</b>\nHarga terbaru tersedia.`).replaceAll("{category}", escapeHtml(title)).replaceAll("{count}", String(productsWithFee.length));
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
-  const targets = telegramTargetChatIds(settings);
+  const targets = telegramTargetChatIds(level);
   if (!targets.length) throw new Error("Target Chat ID harus dikonfigurasi.");
 
   if (format === "text") {

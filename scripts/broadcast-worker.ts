@@ -2,7 +2,6 @@ import { broadcastCategories, type BroadcastFormat } from "../lib/broadcast";
 import { sendCustomBroadcast } from "../lib/custom-broadcast";
 import { db, pool } from "../lib/mysql";
 import { syncAllLevels } from "../lib/product-sync";
-import { hasTelegramTargets } from "../lib/telegram-targets";
 
 const POLL_MS = Math.max(5_000, Number(process.env.SCHEDULE_POLLING_MS || 15_000));
 let running = false;
@@ -39,14 +38,21 @@ function jakartaNow() {
 }
 
 async function runSchedule(schedule: any, settings: any) {
-  if (!settings.botToken || !hasTelegramTargets(settings)) {
-    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: koneksi Telegram belum lengkap.` } });
+  if (!settings.botToken) {
+    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: Bot Token belum dikonfigurasi.` } });
     return;
   }
+  const levelId = typeof schedule.levelId === "string" ? schedule.levelId : null;
+  if (!levelId) {
+    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: jadwal belum memiliki level harga.` } });
+    return;
+  }
+  const level = await db.priceLevel.findUnique({ where: { id: levelId } });
+  if (!level || !level.scheduleEnabled) return;
   if (schedule.broadcastFormat === "custom") {
     const custom = typeof schedule.customBroadcastId === "string" ? await db.customBroadcast.findUnique({ where: { id: schedule.customBroadcastId } }) : null;
-    if (!custom) {
-      await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: BC custom tidak ditemukan.` } });
+    if (!custom || custom.levelId !== levelId) {
+      await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: BC custom tidak ditemukan pada level jadwal.` } });
       return;
     }
     await db.activityLog.create({ data: { type: "SCHEDULE", message: `Jadwal ${schedule.name} mengirim BC custom ${custom.name}.` } });
@@ -57,13 +63,6 @@ async function runSchedule(schedule: any, settings: any) {
       const message = error instanceof Error ? error.message : "Kesalahan worker tidak diketahui";
       await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} gagal mengirim BC custom: ${message}` } });
     }
-    return;
-  }
-  // Every price schedule is pinned to its own level. Never fall back to the
-  // panel's active level: changing tabs must not redirect an existing job.
-  const levelId = typeof schedule.levelId === "string" ? schedule.levelId : null;
-  if (!levelId) {
-    await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: jadwal lama belum memiliki level harga.` } });
     return;
   }
   const categories = levelId ? (await db.productCategory.findMany({ where: { levelId } })).filter((category: any) => category.selected) : [];
@@ -87,7 +86,6 @@ async function tick() {
   try {
     const settings = await db.settings.findUnique();
     await syncProductsWhenDue(settings);
-    if (!settings?.scheduleEnabled) return;
     const now = jakartaNow();
     const schedules = await db.broadcastSchedule.findMany();
     for (const schedule of schedules) {

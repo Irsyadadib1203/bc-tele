@@ -15,18 +15,24 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const action = body?.action;
+  const levelId = typeof body?.levelId === "string" ? body.levelId : null;
+  if (!levelId || !(await db.priceLevel.findUnique({ where: { id: levelId } }))) {
+    return NextResponse.json({ error: "Level harga tidak valid" }, { status: 400 });
+  }
 
   if (action === "create") {
     const name = details(body.name);
     if (!name) return NextResponse.json({ error: "Nama BC custom wajib diisi" }, { status: 400 });
     if (name.length > 100) return NextResponse.json({ error: "Nama BC custom maksimal 100 karakter" }, { status: 400 });
     const created = await db.customBroadcast.create({
-      data: { name, content: typeof body.content === "string" ? body.content : "" },
+      data: { levelId, name, content: typeof body.content === "string" ? body.content : "" },
     });
     return NextResponse.json({ message: `BC custom ${created.name} ditambahkan`, item: created });
   }
 
   if (action === "update" && typeof body.id === "string") {
+    const customBroadcast = await db.customBroadcast.findUnique({ where: { id: body.id } });
+    if (!customBroadcast || customBroadcast.levelId !== levelId) return NextResponse.json({ error: "BC custom tidak ditemukan pada level ini" }, { status: 404 });
     const name = details(body.name);
     if (!name) return NextResponse.json({ error: "Nama BC custom wajib diisi" }, { status: 400 });
     if (name.length > 100) return NextResponse.json({ error: "Nama BC custom maksimal 100 karakter" }, { status: 400 });
@@ -36,9 +42,8 @@ export async function POST(request: Request) {
   }
 
   if (action === "delete" && typeof body.id === "string") {
-    if ((await db.customBroadcast.count()) <= 1) {
-      return NextResponse.json({ error: "Minimal satu BC custom harus tersedia" }, { status: 400 });
-    }
+    const customBroadcast = await db.customBroadcast.findUnique({ where: { id: body.id } });
+    if (!customBroadcast || customBroadcast.levelId !== levelId) return NextResponse.json({ error: "BC custom tidak ditemukan pada level ini" }, { status: 404 });
     await db.customBroadcast.delete({ where: { id: body.id } });
     return NextResponse.json({ message: "BC custom dihapus" });
   }
@@ -48,7 +53,7 @@ export async function POST(request: Request) {
       db.customBroadcast.findUnique({ where: { id: body.id } }),
       db.settings.findUnique(),
     ]);
-    if (!customBroadcast) return NextResponse.json({ error: "BC custom tidak ditemukan" }, { status: 404 });
+    if (!customBroadcast || customBroadcast.levelId !== levelId) return NextResponse.json({ error: "BC custom tidak ditemukan pada level ini" }, { status: 404 });
     try {
       const name = await sendCustomBroadcast(customBroadcast, settings);
       return NextResponse.json({ message: `BC custom ${name} berhasil dikirim` });

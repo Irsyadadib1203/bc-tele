@@ -98,7 +98,7 @@ export function ProductTable({
     );
     const text = [
       `DAFTAR HARGA - [${levelName}]`,
-      `Update : ${formatWibDownloadDateTime(new Date())}`,
+      `Update : ${formatWibDownloadDateTime(new Date())} WIB`,
       "",
       `Kategori - [${c.title}]`,
       "=======================================",

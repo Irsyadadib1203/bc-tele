@@ -7,7 +7,7 @@ export async function POST(req: Request) {
   const { action, id, name, time, days, enabled, broadcastFormat, levelId } =
     await req.json();
   if (action === "create" || (action === "update" && id)) {
-    if (!time || !days?.length)
+    if (!time || !Array.isArray(days) || !days.length)
       return NextResponse.json(
         { error: "Waktu dan hari harus diisi" },
         { status: 400 },
@@ -19,16 +19,18 @@ export async function POST(req: Request) {
     const isPriceFormat = ["image", "text", "both"].includes(broadcastFormat);
     if (!isPriceFormat && !customId)
       return NextResponse.json({ error: "Format broadcast tidak valid" }, { status: 400 });
-    if (customId && !(await db.customBroadcast.findUnique({ where: { id: customId } })))
-      return NextResponse.json({ error: "BC custom tidak ditemukan" }, { status: 404 });
-    if (isPriceFormat && (typeof levelId !== "string" || !(await db.priceLevel.findUnique({ where: { id: levelId } }))))
+    if (typeof levelId !== "string" || !(await db.priceLevel.findUnique({ where: { id: levelId } })))
       return NextResponse.json({ error: "Pilih level harga yang valid" }, { status: 400 });
+    if (customId) {
+      const custom = await db.customBroadcast.findUnique({ where: { id: customId } });
+      if (!custom || custom.levelId !== levelId) return NextResponse.json({ error: "BC custom tidak ditemukan pada level ini" }, { status: 404 });
+    }
     const data = {
       name: name || "Jadwal broadcast",
       time,
       days: days.join(","),
       broadcastFormat: customId ? "custom" : broadcastFormat,
-      levelId: isPriceFormat ? levelId : null,
+      levelId,
       customBroadcastId: customId,
       enabled: !!enabled,
     };

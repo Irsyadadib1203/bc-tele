@@ -31,5 +31,5 @@ export function formatWibDownloadDateTime(value: Date | string | number) {
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((item) => item.type === type)?.value ?? "";
 
-  return `${part("day")} ${part("month")} ${part("year")} - ${part("hour")}.${part("minute")}`;
+  return `${part("day")} ${part("month")} ${part("year")} - ${part("hour")}.${part("minute")} WIB`;
 }

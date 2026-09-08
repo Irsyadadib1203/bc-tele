@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/mysql";
 import { currentUserId } from "@/lib/auth";
 import { normalizeFeeOverrides } from "@/lib/fee";
+import { telegramTargetChatIds } from "@/lib/telegram-targets";
 export async function POST(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const { action, id, name, apiKey, feeEnabled, feeSmall, feeMedium, feeLarge, feeOverrides } = await req.json();
+  const { action, id, name, apiKey, targetChatId, enabled, feeEnabled, feeSmall, feeMedium, feeLarge, feeOverrides } = await req.json();
   if (action === "create") {
     if (!name?.trim())
       return NextResponse.json(
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
       );
     await db.priceLevel.update({
       where: { id },
-      data: { name: name.trim(), apiKey: apiKey || null },
+      data: { name: name.trim(), apiKey: apiKey || null, targetChatId: telegramTargetChatIds({ targetChatId }).join("\n") || null },
     });
     return NextResponse.json({ message: "Level dan API key diperbarui" });
   }
@@ -51,6 +52,12 @@ export async function POST(req: Request) {
     if (overrides.length > 100) return NextResponse.json({ error: "Maksimal 100 override kode produk per level" }, { status: 400 });
     await db.priceLevel.update({ where: { id }, data: { feeEnabled: Boolean(feeEnabled), feeSmall, feeMedium, feeLarge, feeOverrides: overrides } });
     return NextResponse.json({ message: "Pengaturan fee berhasil disimpan" });
+  }
+  if (action === "updateScheduleEnabled" && id) {
+    const level = await db.priceLevel.findUnique({ where: { id } });
+    if (!level) return NextResponse.json({ error: "Level harga tidak ditemukan" }, { status: 404 });
+    await db.priceLevel.update({ where: { id }, data: { scheduleEnabled: Boolean(enabled) } });
+    return NextResponse.json({ message: enabled ? `Jadwal level ${level.name} diaktifkan` : `Jadwal level ${level.name} dinonaktifkan` });
   }
   if (action === "delete" && id) {
     const count = await db.priceLevel.count();

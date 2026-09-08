@@ -1,18 +1,17 @@
 "use client";
 import { useState } from "react";
 import { ConfirmModal, ConfirmedForm, Toast } from "./ui";
-type Level = { id: string; name: string; apiKey: string | null } | null;
+type Level = { id: string; name: string; apiKey: string | null; targetChatId: string | null } | null;
 export function ConnectionSettings({
   level,
   botToken,
-  targetChatId,
 }: {
   level: Level;
   botToken: string;
-  targetChatId: string;
 }) {
   const [name, setName] = useState(level?.name || ""),
     [apiKey, setApiKey] = useState(level?.apiKey || ""),
+    [targetChatId, setTargetChatId] = useState(level?.targetChatId || ""),
     [note, setNote] = useState(""),
     [failed, setFailed] = useState(false),
     [pending, setPending] = useState<{ title: string; message: string; body: unknown } | null>(null);
@@ -51,10 +50,15 @@ export function ConnectionSettings({
                   placeholder="Masukkan API key level ini"
                 />
               </label>
+              <label className="field">
+                Target chat / channel untuk {level.name}
+                <textarea value={targetChatId} onChange={(e) => setTargetChatId(e.target.value)} rows={4} placeholder={"-1001234567890\n@namachannel"} />
+              </label>
+              <p className="muted">Target Telegram hanya digunakan oleh BC dan jadwal pada level ini.</p>
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 20 }}
-                onClick={() => setPending({ title: "Konfirmasi level", message: "Simpan perubahan nama level dan API key ini?", body: { action: "update", id: level.id, name, apiKey } })}
+                onClick={() => setPending({ title: "Konfirmasi level", message: "Simpan perubahan nama level, API key, dan target Telegram ini?", body: { action: "update", id: level.id, name, apiKey, targetChatId } })}
               >
                 Simpan level & API key
               </button>
@@ -74,9 +78,7 @@ export function ConnectionSettings({
         </section>
         <ConfirmedForm action="/api/settings" className="card setting-card" confirmTitle="Konfirmasi koneksi Telegram" confirmMessage="Simpan konfigurasi bot Telegram ini?">
           <h2>Bot Telegram</h2>
-          <p className="muted">
-            Pastikan bot menjadi admin apabila target adalah channel.
-          </p>
+          <p className="muted">Token bot digunakan bersama; target chat diatur terpisah pada setiap level. Pastikan bot menjadi admin apabila target adalah channel.</p>
           <label className="field">
             Bot token
             <input
@@ -86,16 +88,6 @@ export function ConnectionSettings({
               placeholder="123456:ABC-DEF..."
             />
           </label>
-          <label className="field">
-            Target chat / channel ID
-            <textarea
-              name="targetChatId"
-              defaultValue={targetChatId}
-              rows={4}
-              placeholder={"-1001234567890\n@namachannel"}
-            />
-          </label>
-          <p className="muted">Masukkan satu atau beberapa target, satu ID/channel per baris. Koma atau titik koma juga didukung.</p>
           <button className="btn btn-primary" style={{ marginTop: 20 }}>
             Simpan koneksi Telegram
           </button>

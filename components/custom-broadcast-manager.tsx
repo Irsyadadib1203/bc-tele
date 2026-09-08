@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { ConfirmModal, Toast } from "./ui";
 
-export type CustomBroadcast = { id: string; name: string; content: string };
+export type CustomBroadcast = { id: string; levelId: string; name: string; content: string };
 
-export function CustomBroadcastManager({ initial }: { initial: CustomBroadcast[] }) {
+export function CustomBroadcastManager({ initial, levelId, levelName }: { initial: CustomBroadcast[]; levelId: string | null; levelName: string }) {
   const [items, setItems] = useState(initial);
   const [note, setNote] = useState("");
   const [failed, setFailed] = useState(false);
@@ -25,7 +25,7 @@ export function CustomBroadcastManager({ initial }: { initial: CustomBroadcast[]
 
   async function save(item: CustomBroadcast) {
     try {
-      const data = await call({ action: "update", ...item });
+      const data = await call({ action: "update", ...item, levelId });
       setFailed(false);
       setNote(data.message);
     } catch (error) {
@@ -36,7 +36,7 @@ export function CustomBroadcastManager({ initial }: { initial: CustomBroadcast[]
 
   async function send(item: CustomBroadcast) {
     try {
-      const data = await call({ action: "send", id: item.id });
+      const data = await call({ action: "send", id: item.id, levelId });
       setFailed(false);
       setNote(data.message);
     } catch (error) {
@@ -47,7 +47,7 @@ export function CustomBroadcastManager({ initial }: { initial: CustomBroadcast[]
 
   async function remove(item: CustomBroadcast) {
     try {
-      const data = await call({ action: "delete", id: item.id });
+      const data = await call({ action: "delete", id: item.id, levelId });
       setItems((current) => current.filter((entry) => entry.id !== item.id));
       setFailed(false);
       setNote(data.message);
@@ -59,15 +59,15 @@ export function CustomBroadcastManager({ initial }: { initial: CustomBroadcast[]
 
   return <>
     <section className="broadcast-group custom-broadcast-group">
-      <div className="broadcast-group-title"><span>Broadcast custom</span><p>Pesan bebas yang tidak berkaitan dengan harga produk.</p></div>
+      <div className="broadcast-group-title"><span>Broadcast custom — {levelName}</span><p>Pesan bebas ini hanya tersedia dan dikirim untuk level ini.</p></div>
       <div className="custom-broadcast-list">
-        {items.map((item) => <CustomBroadcastCard key={item.id} item={item} canDelete={items.length > 1} onChange={(next) => setItems((current) => current.map((entry) => entry.id === next.id ? next : entry))} onSave={save} onSend={send} onDelete={() => setPending({ title: "Konfirmasi hapus BC custom", message: `Hapus BC custom ${item.name}? Jadwal yang menggunakannya tidak akan dapat dikirim.`, run: () => remove(item) })} />)}
+        {items.map((item) => <CustomBroadcastCard key={item.id} item={item} canDelete onChange={(next) => setItems((current) => current.map((entry) => entry.id === next.id ? next : entry))} onSave={save} onSend={send} onDelete={() => setPending({ title: "Konfirmasi hapus BC custom", message: `Hapus BC custom ${item.name}? Jadwal yang menggunakannya tidak akan dapat dikirim.`, run: () => remove(item) })} />)}
       </div>
-      <button className="btn btn-ghost" style={{ marginTop: 16 }} onClick={() => setAdding(true)}>+ Tambah BC custom</button>
+      <button className="btn btn-ghost" style={{ marginTop: 16 }} disabled={!levelId} onClick={() => setAdding(true)}>+ Tambah BC custom</button>
     </section>
     {note && <Toast message={note} tone={failed ? "error" : "success"} />}
     {pending && <ConfirmModal title={pending.title} onClose={() => setPending(null)}><div className="card-body"><p style={{ margin: 0 }}>{pending.message}</p></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setPending(null)}>Batal</button><button className="btn btn-danger" onClick={() => { const run = pending.run; setPending(null); void run(); }}>Ya, hapus</button></div></ConfirmModal>}
-    {adding && <AddCustomBroadcast onClose={() => setAdding(false)} onCreate={async (name, content) => { try { const data = await call({ action: "create", name, content }); setItems((current) => [...current, data.item]); setAdding(false); setFailed(false); setNote(data.message); } catch (error) { setFailed(true); setNote(error instanceof Error ? error.message : "Gagal menambahkan BC custom"); } }} />}
+    {adding && <AddCustomBroadcast onClose={() => setAdding(false)} onCreate={async (name, content) => { try { const data = await call({ action: "create", levelId, name, content }); setItems((current) => [...current, data.item]); setAdding(false); setFailed(false); setNote(data.message); } catch (error) { setFailed(true); setNote(error instanceof Error ? error.message : "Gagal menambahkan BC custom"); } }} />}
   </>;
 }
 
