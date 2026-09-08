@@ -1,4 +1,4 @@
-export type FeeOverride = { denom: string; fee: number };
+export type FeeOverride = { productCode: string; fee: number };
 
 export type FeeConfiguration = {
   feeEnabled?: boolean;
@@ -10,30 +10,38 @@ export type FeeConfiguration = {
 
 export type FeeProduct = { product_name?: string; product_code?: string };
 
+function normalizeProductCode(value: unknown) {
+  const code = String(value ?? "").trim().toUpperCase();
+  return /^[A-Z0-9][A-Z0-9 _-]*$/.test(code) ? code : "";
+}
+
+function productCodeKey(value: unknown) {
+  return normalizeProductCode(value).replace(/[ _-]+/g, "");
+}
+
 export function normalizeFeeOverrides(value: unknown): FeeOverride[] {
   if (!Array.isArray(value)) return [];
   const unique = new Map<string, FeeOverride>();
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
-    const { denom, fee } = item as Partial<FeeOverride>;
-    const normalizedDenom = String(denom ?? "").trim();
+    const { productCode, fee } = item as Partial<FeeOverride> & { denom?: unknown };
+    // Read the old persisted shape too, so existing settings remain usable.
+    const normalizedProductCode = normalizeProductCode(productCode ?? (item as { denom?: unknown }).denom);
     const numericFee = Number(fee);
-    if (/^\d+(?:\.\d+)?$/.test(normalizedDenom) && Number.isInteger(numericFee) && numericFee >= 0) {
-      unique.set(normalizedDenom, { denom: normalizedDenom, fee: numericFee });
+    if (normalizedProductCode && Number.isInteger(numericFee) && numericFee >= 0) {
+      unique.set(productCodeKey(normalizedProductCode), { productCode: normalizedProductCode, fee: numericFee });
     }
   }
   return [...unique.values()];
 }
 
-function productNumberTokens(product?: FeeProduct): Set<string> {
-  const source = `${product?.product_name ?? ""} ${product?.product_code ?? ""}`;
-  return new Set(source.match(/\d+(?:\.\d+)?/g) ?? []);
-}
-
 export function sellerFee(price: number, configuration: FeeConfiguration, product?: FeeProduct): number {
   if (!configuration.feeEnabled || !Number.isFinite(price) || price < 0) return 0;
 
-  const override = normalizeFeeOverrides(configuration.feeOverrides).find((item) => productNumberTokens(product).has(item.denom));
+  const productCode = productCodeKey(product?.product_code);
+  const override = normalizeFeeOverrides(configuration.feeOverrides).find(
+    (item) => productCode && productCodeKey(item.productCode) === productCode,
+  );
   if (override) return override.fee;
 
   if (price <= 10_000) return Math.max(0, Number(configuration.feeSmall) || 0);

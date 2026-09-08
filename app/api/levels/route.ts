@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const fees = [feeSmall, feeMedium, feeLarge];
     if (!fees.every((fee) => Number.isInteger(fee) && fee >= 0 && fee <= 1_000_000)) return NextResponse.json({ error: "Nilai fee harus berupa bilangan bulat antara 0 dan 1.000.000" }, { status: 400 });
     const overrides = normalizeFeeOverrides(feeOverrides);
-    if (overrides.length > 100) return NextResponse.json({ error: "Maksimal 100 override denom per level" }, { status: 400 });
+    if (overrides.length > 100) return NextResponse.json({ error: "Maksimal 100 override kode produk per level" }, { status: 400 });
     await db.priceLevel.update({ where: { id }, data: { feeEnabled: Boolean(feeEnabled), feeSmall, feeMedium, feeLarge, feeOverrides: overrides } });
     return NextResponse.json({ message: "Pengaturan fee berhasil disimpan" });
   }
