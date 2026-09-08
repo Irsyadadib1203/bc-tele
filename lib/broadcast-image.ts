@@ -86,9 +86,11 @@ function updatedAtLabel(date: Date) {
   return `Diperbarui: ${formatWibDateTime(date)}`;
 }
 
-function displayHeaderTitle(value?: string) {
-  const title = value?.trim() || "PRICE UPDATE";
-  return title.length > 28 ? `${title.slice(0, 27)}…` : title;
+function displayHeaderLabel(titleValue?: string, levelName?: string) {
+  const title = titleValue?.trim() || "PRICE UPDATE";
+  const level = levelName?.trim();
+  const label = level ? `${title} • ${level}` : title;
+  return label.length > 34 ? `${label.slice(0, 33)}…` : label;
 }
 
 /** Creates one compact PNG containing every product in the category, laid
@@ -102,6 +104,7 @@ export async function makeBroadcastImage(
   updatedAt = new Date(),
   feeNotice?: string,
   headerTitle?: string,
+  levelName?: string,
 ) {
   if (products.length === 0) {
     throw new Error("Tidak ada produk untuk dibuatkan gambar.");
@@ -154,7 +157,7 @@ export async function makeBroadcastImage(
     .join("");
 
   const countLabel = `${products.length} produk`;
-  const headerLabel = displayHeaderTitle(headerTitle);
+  const headerLabel = displayHeaderLabel(headerTitle, levelName);
   const headerPillWidth = Math.min(width - 260, Math.max(238, 72 + headerLabel.length * 13));
 
   const feeNoticeText = feeNotice

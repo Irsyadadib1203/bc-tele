@@ -48,6 +48,14 @@ function feeNotice(level: { feeEnabled?: boolean; name?: string | null } | null)
   return `Harga sudah termasuk fee ${levelName}`;
 }
 
+function headerDesign(level: any, settings: any) {
+  return {
+    primaryColor: String(level?.primaryColor ?? settings?.primaryColor ?? "#5B5BD6"),
+    accentColor: String(level?.accentColor ?? settings?.accentColor ?? "#A78BFA"),
+    headerTitle: String(level?.headerTitle ?? settings?.headerTitle ?? "PRICE UPDATE"),
+  };
+}
+
 function includedProducts(category: any) {
   const prefixes = String(category.excludedPrefixes ?? "")
     .split(",")
@@ -90,14 +98,16 @@ export async function makeCategoryBroadcastImage(
   const level = typeof category.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
     : null;
+  const design = headerDesign(level, settings);
   return makeBroadcastImage(
     String(category.title),
     productsForPriceBroadcast(products),
-    String(settings.primaryColor ?? "#5B5BD6"),
-    String(settings.accentColor ?? "#A78BFA"),
+    design.primaryColor,
+    design.accentColor,
     updatedAt,
     feeNotice(level),
-    String(settings.headerTitle ?? "PRICE UPDATE"),
+    design.headerTitle,
+    typeof level?.name === "string" ? level.name : undefined,
   );
 }
 
@@ -117,6 +127,7 @@ export async function sendPriceChangeBroadcast(
   const level = typeof category.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
     : null;
+  const design = headerDesign(level, settings);
   const productsWithDifference = visibleProducts.map((product) => {
     const newPrice = priceWithSellerFee(product.product_price, level ?? {}, product);
     const oldPrice = priceWithSellerFee(product.previousPrice, level ?? {}, product);
@@ -130,11 +141,12 @@ export async function sendPriceChangeBroadcast(
   const image = await makeBroadcastImage(
     title,
     productsForPriceBroadcast(productsWithDifference),
-    String(settings.primaryColor ?? "#5B5BD6"),
-    String(settings.accentColor ?? "#A78BFA"),
+    design.primaryColor,
+    design.accentColor,
     undefined,
     feeNotice(level),
-    String(settings.headerTitle ?? "PRICE UPDATE"),
+    design.headerTitle,
+    typeof level?.name === "string" ? level.name : undefined,
   );
   const failures: string[] = [];
   for (const target of targets) {
