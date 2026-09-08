@@ -116,6 +116,22 @@ function displayHeaderLabel(titleValue?: string, levelName?: string) {
   return label.length > 34 ? `${label.slice(0, 33)}…` : label;
 }
 
+/** Estimates the rendered width of the bold Arial header label. SVG is
+ * rendered server-side, so it has no browser layout engine to measure text.
+ * The extra 38px keeps the white pill balanced with 19px padding per side. */
+function headerPillWidth(label: string, maximum: number) {
+  const glyphWidth = [...label].reduce((total, character) => {
+    if (character === " ") return total + 5;
+    if (character === "•") return total + 8;
+    if ("ilI1|".includes(character)) return total + 5;
+    if ("MW@#".includes(character)) return total + 17;
+    if ("ABCDEFGHJKLMNOPQRSTUVWXYZ0123456789".includes(character)) return total + 12;
+    return total + 10;
+  }, 0);
+  const letterSpacing = Math.max(0, label.length - 1) * 1.5;
+  return Math.min(maximum, Math.ceil(glyphWidth + letterSpacing + 38));
+}
+
 /** Creates one compact PNG containing every product in the category, laid
  * out as a multi-column grid so large lists (up to ~550 items) stay
  * legible instead of turning into one extremely tall, cramped column. */
@@ -183,12 +199,12 @@ export async function makeBroadcastImage(
 
   const countLabel = `${orderedProducts.length} produk`;
   const headerLabel = displayHeaderLabel(headerTitle, levelName);
-  const headerPillWidth = Math.min(width - 260, Math.max(238, 72 + headerLabel.length * 13));
+  const pillWidth = headerPillWidth(headerLabel, width - 260);
 
   const feeNoticeText = feeNotice
     ? `<text x="60" y="${height - 62}" fill="#ffffff" fill-opacity="0.95" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">${escapeXml(productLabel(feeNotice, width - 120))}</text>`
     : "";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="${headerPillWidth}" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">${escapeXml(headerLabel)}</text><text x="${width - 54}" y="76" text-anchor="end" fill="#ffffff" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600">${escapeXml(countLabel)}</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title, width - 116))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${rows}${feeNoticeText}<text x="60" y="${height - 30}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="${pillWidth}" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">${escapeXml(headerLabel)}</text><text x="${width - 54}" y="76" text-anchor="end" fill="#ffffff" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600">${escapeXml(countLabel)}</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title, width - 116))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${rows}${feeNoticeText}<text x="60" y="${height - 30}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
 
   return sharp(Buffer.from(svg)).png().toBuffer();
 }

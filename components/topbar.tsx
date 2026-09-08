@@ -60,7 +60,11 @@ export function Topbar({
       const d = await r.json().catch(() => ({}));
       setFailed(!r.ok);
       setNote(d.message || d.error || (r.ok ? "Level harga dipilih" : "Gagal memilih level harga"));
-      if (r.ok) router.refresh();
+      // The selected level is a server-side setting used by every panel page.
+      // A full reload guarantees all page-specific server data (including
+      // Telegram captions and selected categories) is fetched for the new
+      // level instead of retaining a client-side route segment.
+      if (r.ok) window.location.reload();
     } catch {
       setFailed(true);
       setNote("Tidak dapat terhubung ke server");
