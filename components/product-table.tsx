@@ -71,6 +71,8 @@ export function ProductTable({
       "",
       `# Kategori - [${c.title}]`,
       "",
+      "=======================================",
+      "",
       ...prices,
     ].join("\n");
     const a = document.createElement("a");
@@ -138,9 +140,10 @@ export function ProductTable({
                         <input
                           type="checkbox"
                           checked={c.selected}
-                          onChange={(e) =>
-                            setPending({ title: "Konfirmasi kategori broadcast", message: `${e.target.checked ? "Masukkan" : "Keluarkan"} kategori ${c.title} ${e.target.checked ? "ke" : "dari"} daftar broadcast?`, run: () => save(c.id, { selected: e.target.checked }) })
-                          }
+                          onChange={(e) => {
+                            const nextSelected = e.target.checked;
+                            setPending({ title: "Konfirmasi kategori broadcast", message: `${nextSelected ? "Masukkan" : "Keluarkan"} kategori ${c.title} ${nextSelected ? "ke" : "dari"} daftar broadcast?`, run: () => save(c.id, { selected: nextSelected }) });
+                          }}
                         />
                       </td>
                       <td>
