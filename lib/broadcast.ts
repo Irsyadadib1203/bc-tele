@@ -1,6 +1,7 @@
 import { makeBroadcastImage } from "@/lib/broadcast-image";
 import { priceWithSellerFee } from "@/lib/fee";
 import { db } from "@/lib/mysql";
+import { productsForPriceList } from "@/lib/product-order";
 
 type Product = {
   product_code: string;
@@ -31,18 +32,9 @@ function matchesExcludedPrefix(product: Product, prefixes: string[]) {
   return prefixes.some((prefix) => product.product_code.toLowerCase().startsWith(prefix));
 }
 
-// Membership, subscription, and WDP packages read better after the usual
-// top-up denominations. Keep the API order intact within each group.
-function isLastInPriceList(product: Product) {
-  const label = `${product.product_name ?? ""} ${product.product_code}`.toLowerCase();
-  return /membership|member|weekly|monthly|mingguan|bulanan|subscription|langganan|wdp|weekly\s*diamond\s*pass|diamond\s*pass/.test(label);
-}
-
 /** Keep the same product order for text and image broadcasts. */
 function productsForPriceBroadcast(products: Product[]) {
-  return [...products].sort(
-    (left, right) => Number(isLastInPriceList(left)) - Number(isLastInPriceList(right)),
-  );
+  return productsForPriceList(products);
 }
 
 function feeNotice(level: { feeEnabled?: boolean; name?: string | null } | null) {

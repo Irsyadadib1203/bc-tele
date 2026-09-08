@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { ConfirmModal, Toast } from "./ui";
 import { priceWithSellerFee, type FeeConfiguration } from "@/lib/fee";
+import { productsForPriceList } from "@/lib/product-order";
 import { formatWibDownloadDateTime } from "@/lib/time";
 type Category = {
   id: string;
@@ -61,7 +62,7 @@ export function ProductTable({
           .filter(Boolean)
           .some((x) => String(p.product_code).toLowerCase().startsWith(x)),
     );
-    const prices = visible.map(
+    const prices = productsForPriceList(visible).map(
       (p: any) =>
         `${p.product_code} - Rp ${new Intl.NumberFormat("id-ID").format(priceWithSellerFee(Number(p.product_price), feeConfiguration, p))}`,
     );
@@ -69,10 +70,8 @@ export function ProductTable({
       `DAFTAR HARGA - [${levelName}]`,
       `Update : ${formatWibDownloadDateTime(new Date())}`,
       "",
-      `# Kategori - [${c.title}]`,
-      "",
+      `Kategori - [${c.title}]`,
       "=======================================",
-      "",
       ...prices,
     ].join("\n");
     const a = document.createElement("a");
