@@ -82,6 +82,29 @@ function displayDenomination(value: string) {
   return match ? `${match[1].toUpperCase()}-${match[2]}` : code;
 }
 
+// Membership, subscription, WDP, and ML-TW packages read better after the
+// usual top-up denominations. Keep the source order intact within each group.
+function isLastInBroadcast(product: Product) {
+  const code = product.product_code.trim().toLowerCase();
+
+  return (
+    // catches ml-tw, ml_tw, ml tw, mltw, ml-tw-01, etc.
+    /ml[\s_-]*tw/.test(code) ||
+    /membership|member|weekly|monthly|mingguan|bulanan|subscription|langganan|wdp|weekly[\s_-]*diamond[\s_-]*pass|diamond[\s_-]*pass/.test(code)
+  );
+}
+
+/** Sorts products so membership/WDP/ML-TW-style codes always render last,
+ * without disturbing the relative order of everything else. */
+function sortProductsForBroadcast<T extends Product>(products: T[]): T[] {
+  return [...products].sort((a, b) => {
+    const aLast = isLastInBroadcast(a);
+    const bLast = isLastInBroadcast(b);
+    if (aLast === bLast) return 0; // stable: leaves original order untouched
+    return aLast ? 1 : -1;
+  });
+}
+
 function updatedAtLabel(date: Date) {
   return `Diperbarui: ${formatWibDateTime(date)}`;
 }
@@ -110,10 +133,12 @@ export async function makeBroadcastImage(
     throw new Error("Tidak ada produk untuk dibuatkan gambar.");
   }
 
-  const tier = pickLayout(products.length);
+  const orderedProducts = sortProductsForBroadcast(products);
+
+  const tier = pickLayout(orderedProducts.length);
   const { columns, columnWidth, rowHeight } = tier;
   const width = canvasWidth(tier);
-  const rowsPerColumn = Math.ceil(products.length / columns);
+  const rowsPerColumn = Math.ceil(orderedProducts.length / columns);
   const footerSpace = feeNotice ? FOOTER_SPACE_WITH_FEE_NOTICE : FOOTER_SPACE;
   const height = CONTENT_TOP + rowsPerColumn * rowHeight + footerSpace;
 
@@ -129,7 +154,7 @@ export async function makeBroadcastImage(
   const textPadding = compact ? 8 : 14;
   const radius = compact ? 4 : 10;
 
-  const rows = products
+  const rows = orderedProducts
     .map((product, index) => {
       const columnIndex = Math.floor(index / rowsPerColumn);
       const rowIndexInColumn = index % rowsPerColumn;
@@ -156,7 +181,7 @@ export async function makeBroadcastImage(
     })
     .join("");
 
-  const countLabel = `${products.length} produk`;
+  const countLabel = `${orderedProducts.length} produk`;
   const headerLabel = displayHeaderLabel(headerTitle, levelName);
   const headerPillWidth = Math.min(width - 260, Math.max(238, 72 + headerLabel.length * 13));
 
