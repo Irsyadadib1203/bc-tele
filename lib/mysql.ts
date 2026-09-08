@@ -355,6 +355,8 @@ export const db: any = {
       const predicate = keys.length ? ` WHERE ${keys.map((key) => `\`${key}\` = ?`).join(" AND ")}` : "";
       return (await findMany(`SELECT * FROM \`BroadcastSchedule\`${predicate} ORDER BY createdAt DESC`, keys.map((key) => where[key]))).map((row) => toSchedule(row)!);
     },
+    findUnique: async ({ where: { id } }: { where: { id: string } }) =>
+      toSchedule(await findOne("SELECT * FROM `BroadcastSchedule` WHERE id = ?", [id])),
     create: async ({ data }: { data: Data }) => {
       const id = randomUUID();
       await execute(
