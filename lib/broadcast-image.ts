@@ -17,7 +17,8 @@ const CONTENT_TOP = 230;
 const FOOTER_SPACE = 64;
 const FOOTER_SPACE_WITH_FEE_NOTICE = 96;
 const SIDE_PADDING = 50;
-const COLUMN_GAP = 24;
+// Keeps multi-column catalogues compact without making adjacent cards touch.
+const COLUMN_GAP = 12;
 
 type LayoutTier = {
   /** Upper bound (inclusive) on product count for this tier. */
@@ -207,8 +208,8 @@ export async function makeBroadcastImage(
     // one can collide with the price on the right.
     // Use more generous type for smaller catalogues; dense catalogues still
     // retain a readable, compact size.
-    const codeFontSize = rowHeight >= 42 ? 17 : 14;
-    const detailFontSize = rowHeight >= 42 ? 16 : 13;
+    const codeFontSize = rowHeight >= 42 ? 18 : rowHeight >= 40 ? 16 : 15;
+    const detailFontSize = rowHeight >= 42 ? 17 : rowHeight >= 40 ? 15 : 14;
     const lineHeight = Math.max(codeFontSize, detailFontSize) + 3;
     const columnY = Array.from({ length: columns }, () => CONTENT_TOP);
     const changeRows: string[] = [];
