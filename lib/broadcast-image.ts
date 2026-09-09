@@ -41,9 +41,9 @@ const LAYOUT_TIERS: LayoutTier[] = [
 // badge and can grow vertically when a product code wraps onto another line.
 const PRICE_CHANGE_LAYOUT_TIERS: LayoutTier[] = [
   { maxProducts: 50, columns: 2, columnWidth: 440, rowHeight: 44 },
-  { maxProducts: 150, columns: 3, columnWidth: 380, rowHeight: 42 },
-  { maxProducts: 300, columns: 4, columnWidth: 340, rowHeight: 40 },
-  { maxProducts: 400, columns: 4, columnWidth: 340, rowHeight: 40 },
+  { maxProducts: 150, columns: 4, columnWidth: 380, rowHeight: 42 },
+  { maxProducts: 300, columns: 5, columnWidth: 340, rowHeight: 40 },
+  { maxProducts: 400, columns: 5, columnWidth: 340, rowHeight: 40 },
   { maxProducts: 550, columns: 5, columnWidth: 310, rowHeight: 38 },
 ];
 
@@ -205,11 +205,26 @@ export async function makeBroadcastImage(
     // A price-change row has three horizontal zones: full code, full change,
     // and final price. Code and change wrap inside their own zones so neither
     // one can collide with the price on the right.
-    const codeFontSize = Math.max(10, Math.min(14, Math.floor(rowHeight * 0.42)));
-    const detailFontSize = Math.max(10, Math.min(14, Math.floor(rowHeight * 0.4)));
+    // Use more generous type for smaller catalogues; dense catalogues still
+    // retain a readable, compact size.
+    const codeFontSize = rowHeight >= 42 ? 17 : 14;
+    const detailFontSize = rowHeight >= 42 ? 16 : 13;
     const lineHeight = Math.max(codeFontSize, detailFontSize) + 3;
     const columnY = Array.from({ length: columns }, () => CONTENT_TOP);
     const changeRows: string[] = [];
+    const contentWidth = columnWidth - textPadding * 2;
+    const gap = 8;
+    const longestPriceLabel = Math.max(
+      ...orderedProducts.map((product) => new Intl.NumberFormat("id-ID").format(product.product_price || 0).length),
+    );
+    // These widths are calculated once for the whole image so each column is
+    // vertically aligned, regardless of the value on an individual row.
+    const priceZoneWidth = Math.max(
+      Math.floor(contentWidth * 0.28),
+      Math.ceil(longestPriceLabel * detailFontSize * 0.65) + 4,
+    );
+    const codeZoneWidth = Math.floor((contentWidth - priceZoneWidth - gap * 2) * 0.42);
+    const differenceZoneWidth = contentWidth - priceZoneWidth - codeZoneWidth - gap * 2;
 
     for (const [index, product] of orderedProducts.entries()) {
       const columnIndex = Math.floor(index / rowsPerColumn);
@@ -223,11 +238,8 @@ export async function makeBroadcastImage(
         Number.isFinite(difference) && difference !== 0
           ? `${difference > 0 ? "▲" : "▼"} ${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))}`
           : "";
-      const priceZoneWidth = Math.max(52, Math.ceil(price.length * detailFontSize * 0.65));
-      const gap = 8;
-      const codeZoneWidth = Math.floor((columnWidth - textPadding * 2 - priceZoneWidth - gap * 2) * 0.5);
-      const differenceZoneWidth = columnWidth - textPadding * 2 - priceZoneWidth - codeZoneWidth - gap * 2;
       const differenceX = contentX + codeZoneWidth + gap;
+      const differenceCenterX = differenceX + differenceZoneWidth / 2;
       const codeLines = wrapText(displayDenomination(product.product_code), codeZoneWidth, codeFontSize);
       const differenceLines = differenceLabel
         ? wrapText(differenceLabel, differenceZoneWidth - 10, detailFontSize)
@@ -245,7 +257,7 @@ export async function makeBroadcastImage(
         .map((line, lineIndex) => `<text x="${contentX}" y="${codeTop + codeFontSize + lineIndex * lineHeight}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(line)}</text>`)
         .join("");
       const differenceText = differenceLines.length
-        ? `<rect x="${differenceX - 5}" y="${differenceTop}" width="${differenceZoneWidth}" height="${differenceLines.length * lineHeight + 6}" rx="5" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/>${differenceLines.map((line, lineIndex) => `<text x="${differenceX + differenceZoneWidth / 2 - 5}" y="${differenceTop + detailFontSize + 3 + lineIndex * lineHeight}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(line)}</text>`).join("")}`
+        ? `<rect x="${differenceX}" y="${differenceTop}" width="${differenceZoneWidth}" height="${differenceLines.length * lineHeight + 6}" rx="5" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/>${differenceLines.map((line, lineIndex) => `<text x="${differenceCenterX}" y="${differenceTop + detailFontSize + 3 + lineIndex * lineHeight}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(line)}</text>`).join("")}`
         : "";
       changeRows.push(`<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${cardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${priceBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`);
       columnY[columnIndex] += cardHeight + 4;
