@@ -3,6 +3,7 @@ import { priceWithSellerFee } from "@/lib/fee";
 import { db } from "@/lib/mysql";
 import { productsForPriceList } from "@/lib/product-order";
 import { telegramTargetChatIds } from "@/lib/telegram-targets";
+import { formatWibDateTime } from "@/lib/time";
 
 type Product = {
   product_id?: string;
@@ -66,6 +67,40 @@ function productKey(product: { product_id?: unknown; product_code?: unknown }) {
 function captionTemplate(level: any, format: BroadcastFormat, fallback: string) {
   const value = format === "text" ? level?.caption : level?.imageCaption;
   return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+/** Replaces the values that are available in price-broadcast captions.
+ * `header` is supplied only for an automatic price-change notice. */
+function renderCaption(
+  template: string,
+  category: string,
+  count: number,
+  header = "",
+  sentAt = new Date(),
+) {
+  return template
+    .replaceAll("{category}", escapeHtml(category))
+    .replaceAll("{count}", String(count))
+    .replaceAll("{time}", formatWibDateTime(sentAt))
+    .replaceAll("{header}", header);
+}
+
+/**
+ * A whole-category status requires every visible product to have changed in
+ * the same direction. Otherwise the status reports the prevailing direction
+ * as a partial change. The automatic price-change sender only invokes this
+ * after finding at least one changed price.
+ */
+function priceChangeHeader(products: Array<{ priceChange?: number }>) {
+  const changes = products
+    .map((product) => Number(product.priceChange))
+    .filter((change) => Number.isFinite(change) && change !== 0);
+  const increases = changes.filter((change) => change > 0).length;
+  const decreases = changes.filter((change) => change < 0).length;
+
+  if (increases === products.length) return "HARGA NAIK";
+  if (decreases === products.length) return "HARGA TURUN";
+  return increases >= decreases ? "HARGA NAIK SEBAGIAN" : "HARGA TURUN SEBAGIAN";
 }
 
 function includedProducts(category: any) {
@@ -149,9 +184,12 @@ export async function sendPriceChangeBroadcast(
   });
   if (!productsWithDifference.some((product) => product.priceChange !== undefined && product.priceChange !== 0)) return false;
   const title = String(category.title);
-  const caption = captionTemplate(level, "image", `<b>${title}</b>\nPerubahan harga terbaru.`)
-    .replaceAll("{category}", escapeHtml(title))
-    .replaceAll("{count}", String(productsWithDifference.length));
+  const caption = renderCaption(
+    captionTemplate(level, "image", `<b>${title}</b>\nPerubahan harga terbaru.`),
+    title,
+    productsWithDifference.length,
+    priceChangeHeader(productsWithDifference),
+  );
   const image = await makeBroadcastImage(
     title,
     productsForPriceBroadcast(productsWithDifference),
@@ -191,7 +229,11 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
   const level = typeof category.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
     : null;
-  const caption = captionTemplate(level, format, `<b>${title}</b>\nHarga terbaru tersedia.`).replaceAll("{category}", escapeHtml(title)).replaceAll("{count}", String(productsWithFee.length));
+  const caption = renderCaption(
+    captionTemplate(level, format, `<b>${title}</b>\nHarga terbaru tersedia.`),
+    title,
+    productsWithFee.length,
+  );
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
   const targets = telegramTargetChatIds(level);
   if (!targets.length) throw new Error("Target Chat ID harus dikonfigurasi.");
