@@ -31,14 +31,25 @@ type LayoutTier = {
 // grows, instead of shrinking a single column down to unreadable rows.
 const LAYOUT_TIERS: LayoutTier[] = [
   { maxProducts: 50, columns: 2, columnWidth: 340, rowHeight: 62 },
-  { maxProducts: 150, columns: 4, columnWidth: 280, rowHeight: 34 },
-  { maxProducts: 300, columns: 5, columnWidth: 280, rowHeight: 28 },
-  { maxProducts: 400, columns: 5, columnWidth: 280, rowHeight: 28 },
-  { maxProducts: 550, columns: 5, columnWidth: 280, rowHeight: 28 },
+  { maxProducts: 150, columns: 4, columnWidth: 260, rowHeight: 34 },
+  { maxProducts: 300, columns: 5, columnWidth: 220, rowHeight: 28 },
+  { maxProducts: 400, columns: 5, columnWidth: 220, rowHeight: 28 },
+  { maxProducts: 550, columns: 5, columnWidth: 220, rowHeight: 28 },
 ];
 
-function pickLayout(count: number): LayoutTier {
-  const tier = LAYOUT_TIERS.find((t) => count <= t.maxProducts);
+// Automatic price-change notices need more horizontal room for the change
+// badge and can grow vertically when a product code wraps onto another line.
+const PRICE_CHANGE_LAYOUT_TIERS: LayoutTier[] = [
+  { maxProducts: 50, columns: 2, columnWidth: 440, rowHeight: 44 },
+  { maxProducts: 150, columns: 3, columnWidth: 380, rowHeight: 42 },
+  { maxProducts: 300, columns: 4, columnWidth: 340, rowHeight: 40 },
+  { maxProducts: 400, columns: 4, columnWidth: 340, rowHeight: 40 },
+  { maxProducts: 550, columns: 5, columnWidth: 310, rowHeight: 38 },
+];
+
+function pickLayout(count: number, isPriceChangeNotice: boolean): LayoutTier {
+  const tier = (isPriceChangeNotice ? PRICE_CHANGE_LAYOUT_TIERS : LAYOUT_TIERS)
+    .find((item) => count <= item.maxProducts);
   if (!tier) {
     throw new Error(
       `Jumlah produk (${count}) melebihi batas 550 untuk satu gambar. ` +
@@ -77,6 +88,16 @@ function productLabel(value: string, columnWidth: number) {
 function fitInlineLabel(value: string, maximumWidth: number, fontSize: number) {
   const maxLength = Math.max(1, Math.floor(maximumWidth / (fontSize * 0.72)));
   return value.length > maxLength ? `${value.slice(0, Math.max(0, maxLength - 1))}…` : value;
+}
+
+/** Splits a product code into visible lines without dropping any characters. */
+function wrapProductCode(value: string, maximumWidth: number, fontSize: number) {
+  const charactersPerLine = Math.max(6, Math.floor(maximumWidth / (fontSize * 0.68)));
+  const characters = Array.from(value);
+  return Array.from(
+    { length: Math.ceil(characters.length / charactersPerLine) },
+    (_, index) => characters.slice(index * charactersPerLine, (index + 1) * charactersPerLine).join(""),
+  );
 }
 
 /**
@@ -153,76 +174,100 @@ export async function makeBroadcastImage(
   }
 
   const orderedProducts = sortProductsForBroadcast(products);
-
-  const tier = pickLayout(orderedProducts.length);
+  const isPriceChangeNotice = orderedProducts.some((product) => {
+    const difference = Number(product.priceChange);
+    return Number.isFinite(difference) && difference !== 0;
+  });
+  const tier = pickLayout(orderedProducts.length, isPriceChangeNotice);
   const { columns, columnWidth, rowHeight } = tier;
   const width = canvasWidth(tier);
   const rowsPerColumn = Math.ceil(orderedProducts.length / columns);
   const footerSpace = feeNotice ? FOOTER_SPACE_WITH_FEE_NOTICE : FOOTER_SPACE;
-  const height = CONTENT_TOP + rowsPerColumn * rowHeight + footerSpace;
-
-  if (rowHeight < MINIMUM_ROW_HEIGHT || width + height > TELEGRAM_SAFE_MAX_TOTAL) {
-    throw new Error(
-      "Jumlah produk terlalu banyak untuk satu gambar Telegram yang rapi.",
-    );
-  }
-
   const compact = rowHeight < 40;
   const rowCardHeight = Math.max(14, rowHeight - 4);
   const rowFontSize = Math.max(10, Math.min(23, Math.floor(rowHeight * 0.58)));
   const textPadding = compact ? 8 : 14;
   const radius = compact ? 4 : 10;
 
-  const rows = orderedProducts
-    .map((product, index) => {
+  let height = CONTENT_TOP + rowsPerColumn * rowHeight + footerSpace;
+  let rows: string;
+
+  if (!isPriceChangeNotice) {
+    // Regular image broadcasts retain the original compact tier sizing.
+    rows = orderedProducts
+      .map((product, index) => {
+        const columnIndex = Math.floor(index / rowsPerColumn);
+        const rowIndexInColumn = index % rowsPerColumn;
+        const columnX = SIDE_PADDING + columnIndex * (columnWidth + COLUMN_GAP);
+        const y = CONTENT_TOP + rowIndexInColumn * rowHeight;
+        const textBaseline = y + Math.floor(rowCardHeight * 0.7) + 1;
+        const codeX = columnX + textPadding;
+        const priceX = columnX + columnWidth - textPadding;
+        const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
+        const denomination = productLabel(displayDenomination(product.product_code), columnWidth);
+        return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(denomination)}</text><text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
+      })
+      .join("");
+  } else {
+    // Price-change cards place the full code above the change badge and final
+    // price. Every card can therefore grow independently without overlap.
+    const codeFontSize = Math.max(10, Math.min(14, Math.floor(rowHeight * 0.42)));
+    const detailFontSize = Math.max(10, Math.min(14, Math.floor(rowHeight * 0.4)));
+    const codeLineHeight = codeFontSize + 3;
+    const columnY = Array.from({ length: columns }, () => CONTENT_TOP);
+    const changeRows: string[] = [];
+
+    for (const [index, product] of orderedProducts.entries()) {
       const columnIndex = Math.floor(index / rowsPerColumn);
-      const rowIndexInColumn = index % rowsPerColumn;
       const columnX = SIDE_PADDING + columnIndex * (columnWidth + COLUMN_GAP);
-      const y = CONTENT_TOP + rowIndexInColumn * rowHeight;
-      const textBaseline = y + Math.floor(rowCardHeight * 0.7) + 1;
+      const y = columnY[columnIndex];
       const codeX = columnX + textPadding;
       const priceX = columnX + columnWidth - textPadding;
-      const price = new Intl.NumberFormat("id-ID").format(
-        product.product_price || 0,
+      const codeLines = wrapProductCode(
+        displayDenomination(product.product_code),
+        columnWidth - textPadding * 2,
+        codeFontSize,
       );
+      const cardHeight = Math.max(
+        rowCardHeight,
+        codeLines.length * codeLineHeight + detailFontSize + 13,
+      );
+      const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
       const difference = Number(product.priceChange);
       const differenceLabel =
         Number.isFinite(difference) && difference !== 0
           ? `${difference > 0 ? "▲" : "▼"} ${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))}`
           : "";
-      // A changed-price row always has three reserved zones. This prevents a
-      // long code, a large difference, and the final price from overlapping.
-      const inlineFontSize = differenceLabel ? Math.min(rowFontSize, 14) : rowFontSize;
-      const gap = differenceLabel ? (compact ? 3 : 6) : 0;
-      const priceZoneWidth = differenceLabel
-        ? Math.max(52, Math.ceil(price.length * inlineFontSize * 0.65))
-        : columnWidth - textPadding * 2;
+      const priceZoneWidth = Math.max(52, Math.ceil(price.length * detailFontSize * 0.65));
       const differenceZoneWidth = differenceLabel
         ? Math.min(
-            Math.floor(columnWidth * 0.44),
-            Math.max(58, Math.ceil(differenceLabel.length * inlineFontSize * 0.65) + 10),
+            Math.floor((columnWidth - textPadding * 2 - priceZoneWidth - 8) * 0.96),
+            Math.max(58, Math.ceil(differenceLabel.length * detailFontSize * 0.65) + 10),
           )
         : 0;
-      const codeZoneWidth = Math.max(
-        16,
-        columnWidth - textPadding * 2 - priceZoneWidth - differenceZoneWidth - gap * 2,
-      );
-      const differenceX = priceX - priceZoneWidth - gap;
-      const codeLabel = fitInlineLabel(
-        displayDenomination(product.product_code),
-        codeZoneWidth,
-        inlineFontSize,
-      );
       const changeLabel = differenceLabel
-        ? fitInlineLabel(differenceLabel, differenceZoneWidth - 10, inlineFontSize)
+        ? fitInlineLabel(differenceLabel, differenceZoneWidth - 10, detailFontSize)
         : "";
+      const detailBaseline = y + codeLines.length * codeLineHeight + detailFontSize + 4;
+      const badgeY = detailBaseline - detailFontSize - 4;
       const differenceText = changeLabel
-        ? `<rect x="${differenceX - differenceZoneWidth - gap}" y="${y + Math.max(2, Math.floor((rowCardHeight - inlineFontSize - 6) / 2))}" width="${differenceZoneWidth}" height="${Math.min(rowCardHeight - 4, inlineFontSize + 6)}" rx="${Math.max(3, radius - 2)}" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/><text x="${differenceX - differenceZoneWidth / 2 - gap}" y="${textBaseline}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${inlineFontSize}" font-weight="700">${escapeXml(changeLabel)}</text>`
+        ? `<rect x="${codeX}" y="${badgeY}" width="${differenceZoneWidth}" height="${detailFontSize + 7}" rx="5" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/><text x="${codeX + differenceZoneWidth / 2}" y="${detailBaseline}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(changeLabel)}</text>`
         : "";
+      const codeText = codeLines
+        .map((line, lineIndex) => `<text x="${codeX}" y="${y + codeFontSize + 4 + lineIndex * codeLineHeight}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(line)}</text>`)
+        .join("");
+      changeRows.push(`<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${cardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${detailBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`);
+      columnY[columnIndex] += cardHeight + 4;
+    }
+    height = Math.max(...columnY) - 4 + footerSpace;
+    rows = changeRows.join("");
+  }
 
-      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${inlineFontSize}" font-weight="600">${escapeXml(codeLabel)}</text>${differenceText}<text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${inlineFontSize}" font-weight="700">${price}</text></g>`;
-    })
-    .join("");
+  if (rowHeight < MINIMUM_ROW_HEIGHT || width + height > TELEGRAM_SAFE_MAX_TOTAL) {
+    throw new Error(
+      "Jumlah produk terlalu banyak untuk satu gambar Telegram yang rapi.",
+    );
+  }
 
   const countLabel = `${orderedProducts.length} produk`;
   const headerLabel = displayHeaderLabel(headerTitle, levelName);
