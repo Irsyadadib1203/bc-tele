@@ -83,15 +83,8 @@ function productLabel(value: string, columnWidth: number) {
   return value.length > maxLen ? `${value.slice(0, maxLen - 1)}…` : value;
 }
 
-/** Keeps a label inside a fixed SVG text zone. The generous width estimate
- * reserves room for wide letters as well as the ellipsis. */
-function fitInlineLabel(value: string, maximumWidth: number, fontSize: number) {
-  const maxLength = Math.max(1, Math.floor(maximumWidth / (fontSize * 0.72)));
-  return value.length > maxLength ? `${value.slice(0, Math.max(0, maxLength - 1))}…` : value;
-}
-
-/** Splits a product code into visible lines without dropping any characters. */
-function wrapProductCode(value: string, maximumWidth: number, fontSize: number) {
+/** Splits text into visible lines without dropping any characters. */
+function wrapText(value: string, maximumWidth: number, fontSize: number) {
   const charactersPerLine = Math.max(6, Math.floor(maximumWidth / (fontSize * 0.68)));
   const characters = Array.from(value);
   return Array.from(
@@ -209,11 +202,12 @@ export async function makeBroadcastImage(
       })
       .join("");
   } else {
-    // Price-change cards place the full code above the change badge and final
-    // price. Every card can therefore grow independently without overlap.
+    // A price-change row has three horizontal zones: full code, full change,
+    // and final price. Code and change wrap inside their own zones so neither
+    // one can collide with the price on the right.
     const codeFontSize = Math.max(10, Math.min(14, Math.floor(rowHeight * 0.42)));
     const detailFontSize = Math.max(10, Math.min(14, Math.floor(rowHeight * 0.4)));
-    const codeLineHeight = codeFontSize + 3;
+    const lineHeight = Math.max(codeFontSize, detailFontSize) + 3;
     const columnY = Array.from({ length: columns }, () => CONTENT_TOP);
     const changeRows: string[] = [];
 
@@ -221,17 +215,8 @@ export async function makeBroadcastImage(
       const columnIndex = Math.floor(index / rowsPerColumn);
       const columnX = SIDE_PADDING + columnIndex * (columnWidth + COLUMN_GAP);
       const y = columnY[columnIndex];
-      const codeX = columnX + textPadding;
+      const contentX = columnX + textPadding;
       const priceX = columnX + columnWidth - textPadding;
-      const codeLines = wrapProductCode(
-        displayDenomination(product.product_code),
-        columnWidth - textPadding * 2,
-        codeFontSize,
-      );
-      const cardHeight = Math.max(
-        rowCardHeight,
-        codeLines.length * codeLineHeight + detailFontSize + 13,
-      );
       const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
       const difference = Number(product.priceChange);
       const differenceLabel =
@@ -239,24 +224,30 @@ export async function makeBroadcastImage(
           ? `${difference > 0 ? "▲" : "▼"} ${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))}`
           : "";
       const priceZoneWidth = Math.max(52, Math.ceil(price.length * detailFontSize * 0.65));
-      const differenceZoneWidth = differenceLabel
-        ? Math.min(
-            Math.floor((columnWidth - textPadding * 2 - priceZoneWidth - 8) * 0.96),
-            Math.max(58, Math.ceil(differenceLabel.length * detailFontSize * 0.65) + 10),
-          )
-        : 0;
-      const changeLabel = differenceLabel
-        ? fitInlineLabel(differenceLabel, differenceZoneWidth - 10, detailFontSize)
-        : "";
-      const detailBaseline = y + codeLines.length * codeLineHeight + detailFontSize + 4;
-      const badgeY = detailBaseline - detailFontSize - 4;
-      const differenceText = changeLabel
-        ? `<rect x="${codeX}" y="${badgeY}" width="${differenceZoneWidth}" height="${detailFontSize + 7}" rx="5" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/><text x="${codeX + differenceZoneWidth / 2}" y="${detailBaseline}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(changeLabel)}</text>`
-        : "";
+      const gap = 8;
+      const codeZoneWidth = Math.floor((columnWidth - textPadding * 2 - priceZoneWidth - gap * 2) * 0.5);
+      const differenceZoneWidth = columnWidth - textPadding * 2 - priceZoneWidth - codeZoneWidth - gap * 2;
+      const differenceX = contentX + codeZoneWidth + gap;
+      const codeLines = wrapText(displayDenomination(product.product_code), codeZoneWidth, codeFontSize);
+      const differenceLines = differenceLabel
+        ? wrapText(differenceLabel, differenceZoneWidth - 10, detailFontSize)
+        : [];
+      const contentHeight = Math.max(
+        codeLines.length * lineHeight,
+        differenceLines.length * lineHeight,
+        detailFontSize,
+      );
+      const cardHeight = Math.max(rowCardHeight, contentHeight + 10);
+      const codeTop = y + (cardHeight - codeLines.length * lineHeight) / 2;
+      const differenceTop = y + (cardHeight - differenceLines.length * lineHeight - 6) / 2;
+      const priceBaseline = y + (cardHeight + detailFontSize) / 2 - 1;
       const codeText = codeLines
-        .map((line, lineIndex) => `<text x="${codeX}" y="${y + codeFontSize + 4 + lineIndex * codeLineHeight}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(line)}</text>`)
+        .map((line, lineIndex) => `<text x="${contentX}" y="${codeTop + codeFontSize + lineIndex * lineHeight}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(line)}</text>`)
         .join("");
-      changeRows.push(`<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${cardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${detailBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`);
+      const differenceText = differenceLines.length
+        ? `<rect x="${differenceX - 5}" y="${differenceTop}" width="${differenceZoneWidth}" height="${differenceLines.length * lineHeight + 6}" rx="5" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/>${differenceLines.map((line, lineIndex) => `<text x="${differenceX + differenceZoneWidth / 2 - 5}" y="${differenceTop + detailFontSize + 3 + lineIndex * lineHeight}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(line)}</text>`).join("")}`
+        : "";
+      changeRows.push(`<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${cardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${priceBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`);
       columnY[columnIndex] += cardHeight + 4;
     }
     height = Math.max(...columnY) - 4 + footerSpace;
