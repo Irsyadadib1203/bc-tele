@@ -31,10 +31,10 @@ type LayoutTier = {
 // grows, instead of shrinking a single column down to unreadable rows.
 const LAYOUT_TIERS: LayoutTier[] = [
   { maxProducts: 50, columns: 2, columnWidth: 340, rowHeight: 62 },
-  { maxProducts: 150, columns: 4, columnWidth: 260, rowHeight: 34 },
-  { maxProducts: 300, columns: 5, columnWidth: 220, rowHeight: 28 },
-  { maxProducts: 400, columns: 5, columnWidth: 220, rowHeight: 28 },
-  { maxProducts: 550, columns: 5, columnWidth: 220, rowHeight: 28 },
+  { maxProducts: 150, columns: 4, columnWidth: 280, rowHeight: 34 },
+  { maxProducts: 300, columns: 5, columnWidth: 280, rowHeight: 28 },
+  { maxProducts: 400, columns: 5, columnWidth: 280, rowHeight: 28 },
+  { maxProducts: 550, columns: 5, columnWidth: 280, rowHeight: 28 },
 ];
 
 function pickLayout(count: number): LayoutTier {
@@ -70,6 +70,13 @@ function escapeXml(value: string) {
 function productLabel(value: string, columnWidth: number) {
   const maxLen = Math.max(10, Math.floor((52 * columnWidth) / 980));
   return value.length > maxLen ? `${value.slice(0, maxLen - 1)}…` : value;
+}
+
+/** Keeps a label inside a fixed SVG text zone. The generous width estimate
+ * reserves room for wide letters as well as the ellipsis. */
+function fitInlineLabel(value: string, maximumWidth: number, fontSize: number) {
+  const maxLength = Math.max(1, Math.floor(maximumWidth / (fontSize * 0.72)));
+  return value.length > maxLength ? `${value.slice(0, Math.max(0, maxLength - 1))}…` : value;
 }
 
 /**
@@ -181,15 +188,39 @@ export async function makeBroadcastImage(
       const difference = Number(product.priceChange);
       const differenceLabel =
         Number.isFinite(difference) && difference !== 0
-          ? `(${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))})`
+          ? `${difference > 0 ? "▲" : "▼"} ${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))}`
           : "";
-      const differenceText = differenceLabel
-        ? `<text x="${columnX + columnWidth / 2}" y="${textBaseline}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${differenceLabel}</text>`
+      // A changed-price row always has three reserved zones. This prevents a
+      // long code, a large difference, and the final price from overlapping.
+      const inlineFontSize = differenceLabel ? Math.min(rowFontSize, 16) : rowFontSize;
+      const gap = differenceLabel ? (compact ? 3 : 6) : 0;
+      const priceZoneWidth = differenceLabel
+        ? Math.max(52, Math.ceil(price.length * inlineFontSize * 0.65))
+        : columnWidth - textPadding * 2;
+      const differenceZoneWidth = differenceLabel
+        ? Math.min(
+            Math.floor(columnWidth * 0.44),
+            Math.max(58, Math.ceil(differenceLabel.length * inlineFontSize * 0.65) + 10),
+          )
+        : 0;
+      const codeZoneWidth = Math.max(
+        16,
+        columnWidth - textPadding * 2 - priceZoneWidth - differenceZoneWidth - gap * 2,
+      );
+      const differenceX = priceX - priceZoneWidth - gap;
+      const codeLabel = fitInlineLabel(
+        displayDenomination(product.product_code),
+        codeZoneWidth,
+        inlineFontSize,
+      );
+      const changeLabel = differenceLabel
+        ? fitInlineLabel(differenceLabel, differenceZoneWidth - 10, inlineFontSize)
+        : "";
+      const differenceText = changeLabel
+        ? `<rect x="${differenceX - differenceZoneWidth - gap}" y="${y + Math.max(2, Math.floor((rowCardHeight - inlineFontSize - 6) / 2))}" width="${differenceZoneWidth}" height="${Math.min(rowCardHeight - 4, inlineFontSize + 6)}" rx="${Math.max(3, radius - 2)}" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/><text x="${differenceX - differenceZoneWidth / 2 - gap}" y="${textBaseline}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${inlineFontSize}" font-weight="700">${escapeXml(changeLabel)}</text>`
         : "";
 
-      const denomination = productLabel(displayDenomination(product.product_code), columnWidth);
-
-      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="600">${escapeXml(denomination)}</text>${differenceText}<text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${rowFontSize}" font-weight="700">${price}</text></g>`;
+      return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/><text x="${codeX}" y="${textBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${inlineFontSize}" font-weight="600">${escapeXml(codeLabel)}</text>${differenceText}<text x="${priceX}" y="${textBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${inlineFontSize}" font-weight="700">${price}</text></g>`;
     })
     .join("");
 
