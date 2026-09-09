@@ -192,7 +192,7 @@ export async function makeBroadcastImage(
           : "";
       // A changed-price row always has three reserved zones. This prevents a
       // long code, a large difference, and the final price from overlapping.
-      const inlineFontSize = differenceLabel ? Math.min(rowFontSize, 16) : rowFontSize;
+      const inlineFontSize = differenceLabel ? Math.min(rowFontSize, 14) : rowFontSize;
       const gap = differenceLabel ? (compact ? 3 : 6) : 0;
       const priceZoneWidth = differenceLabel
         ? Math.max(52, Math.ceil(price.length * inlineFontSize * 0.65))
