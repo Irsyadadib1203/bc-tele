@@ -258,7 +258,7 @@ export async function makeBroadcastImage(
         .map((line, lineIndex) => `<text x="${contentX}" y="${codeTop + codeFontSize + lineIndex * lineHeight}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(line)}</text>`)
         .join("");
       const differenceText = differenceLines.length
-        ? `<rect x="${differenceX}" y="${differenceTop}" width="${differenceZoneWidth}" height="${differenceLines.length * lineHeight + 6}" rx="5" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/>${differenceLines.map((line, lineIndex) => `<text x="${differenceCenterX}" y="${differenceTop + detailFontSize + 3 + lineIndex * lineHeight}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(line)}</text>`).join("")}`
+        ? differenceLines.map((line, lineIndex) => `<text x="${differenceCenterX}" y="${differenceTop + detailFontSize + 3 + lineIndex * lineHeight}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(line)}</text>`).join("")
         : "";
       changeRows.push(`<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${cardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${priceBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`);
       columnY[columnIndex] += cardHeight + 4;
