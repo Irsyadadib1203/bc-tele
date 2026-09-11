@@ -203,9 +203,9 @@ export async function makeBroadcastImage(
       })
       .join("");
   } else {
-    // A price-change row has three horizontal zones: full code, full change,
-    // and final price. Code and change wrap inside their own zones so neither
-    // one can collide with the price on the right.
+    // Price-change rows keep the product code on one line at the tier font
+    // size. Deliberately do not clip or wrap the code: long values may extend
+    // into the middle change zone when necessary.
     // Use more generous type for smaller catalogues; dense catalogues still
     // retain a readable, compact size.
     const codeFontSize = rowHeight >= 42 ? 18 : rowHeight >= 40 ? 16 : 15;
@@ -241,7 +241,7 @@ export async function makeBroadcastImage(
           : "";
       const differenceX = contentX + codeZoneWidth + gap;
       const differenceCenterX = differenceX + differenceZoneWidth / 2;
-      const codeLines = wrapText(displayDenomination(product.product_code), codeZoneWidth, codeFontSize);
+      const codeLines = [displayDenomination(product.product_code)];
       const differenceLines = differenceLabel
         ? wrapText(differenceLabel, differenceZoneWidth - 10, detailFontSize)
         : [];
