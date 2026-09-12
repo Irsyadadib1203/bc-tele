@@ -533,6 +533,14 @@ button {
 .switch.on:after {
   left: 18px;
 }
+.data-table th.auto-broadcast-toggle,
+.data-table td.auto-broadcast-toggle {
+  text-align: center;
+}
+.data-table td.auto-broadcast-toggle .switch {
+  display: inline-block;
+  vertical-align: middle;
+}
 .toolbar {
   display: flex;
   gap: 10px;

@@ -171,7 +171,7 @@ export function ProductTable({
                     </th>
                     <th>Nama kategori</th>
                     <th>Jumlah produk</th>
-                    <th>BC perubahan harga</th>
+                    <th className="auto-broadcast-toggle">BC perubahan harga</th>
                     <th>Filter awalan (prefix)</th>
                     <th>Aksi</th>
                   </tr>
@@ -195,7 +195,7 @@ export function ProductTable({
                       <td>
                         <b>{c.productCount}</b> produk
                       </td>
-                      <td>
+                      <td className="auto-broadcast-toggle">
                         <button
                           className={`switch ${c.priceChangeBroadcastEnabled ? "on" : ""}`}
                           aria-label={`${c.priceChangeBroadcastEnabled ? "Nonaktifkan" : "Aktifkan"} BC perubahan harga untuk ${c.title}`}
