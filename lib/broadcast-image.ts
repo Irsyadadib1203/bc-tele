@@ -203,68 +203,66 @@ export async function makeBroadcastImage(
       })
       .join("");
   } else {
-    // Price-change rows keep the product code on one line at the tier font
-    // size. Deliberately do not clip or wrap the code: long values may extend
-    // into the middle change zone when necessary.
-    // Use more generous type for smaller catalogues; dense catalogues still
-    // retain a readable, compact size.
+    // Price-change rows keep both the product code and the change badge on
+    // a single line at the tier font size — never wrapped, never truncated.
     const codeFontSize = rowHeight >= 42 ? 18 : rowHeight >= 40 ? 16 : 15;
     const detailFontSize = rowHeight >= 42 ? 17 : rowHeight >= 40 ? 15 : 14;
-    const lineHeight = Math.max(codeFontSize, detailFontSize) + 3;
-    const columnY = Array.from({ length: columns }, () => CONTENT_TOP);
-    const changeRows: string[] = [];
     const contentWidth = columnWidth - textPadding * 2;
-    const gap = 4;
+    const gap = 10;
+
+    // Precompute every difference label so the badge column can be sized to
+    // the longest value that actually appears — that's what guarantees a
+    // single, unwrapped line for every row, no matter how long the number is.
+    const differenceLabels = orderedProducts.map((product) => {
+      const difference = Number(product.priceChange);
+      return Number.isFinite(difference) && difference !== 0
+        ? `${difference > 0 ? "▲" : "▼"} ${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))}`
+        : "";
+    });
     const longestPriceLabel = Math.max(
       ...orderedProducts.map((product) => new Intl.NumberFormat("id-ID").format(product.product_price || 0).length),
     );
-    // These widths are calculated once for the whole image so each column is
-    // vertically aligned, regardless of the value on an individual row.
-    const priceZoneWidth = Math.max(
-      Math.floor(contentWidth * 0.28),
-      Math.ceil(longestPriceLabel * detailFontSize * 0.65) + 4,
-    );
-    const codeZoneWidth = Math.floor((contentWidth - priceZoneWidth - gap * 2) * 0.42);
-    const differenceZoneWidth = contentWidth - priceZoneWidth - codeZoneWidth - gap * 2;
+    const longestDifferenceLabel = Math.max(0, ...differenceLabels.map((label) => label.length));
 
-    for (const [index, product] of orderedProducts.entries()) {
-      const columnIndex = Math.floor(index / rowsPerColumn);
-      const columnX = SIDE_PADDING + columnIndex * (columnWidth + COLUMN_GAP);
-      const y = columnY[columnIndex];
-      const contentX = columnX + textPadding;
-      const priceX = columnX + columnWidth - textPadding;
-      const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
-      const difference = Number(product.priceChange);
-      const differenceLabel =
-        Number.isFinite(difference) && difference !== 0
-          ? `${difference > 0 ? "▲" : "▼"} ${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))}`
+    const priceZoneWidth = Math.ceil(longestPriceLabel * detailFontSize * 0.62) + 6;
+    const differenceZoneWidth = Math.max(
+      44,
+      Math.ceil(longestDifferenceLabel * detailFontSize * 0.62) + 22,
+    );
+    // Code keeps whatever remains; if a code is very long it may extend
+    // toward the badge, same intentional behavior as before — it is never
+    // clipped or shortened.
+    const codeZoneWidth = Math.max(40, contentWidth - priceZoneWidth - differenceZoneWidth - gap * 2);
+
+    rows = orderedProducts
+      .map((product, index) => {
+        const columnIndex = Math.floor(index / rowsPerColumn);
+        const rowIndexInColumn = index % rowsPerColumn;
+        const columnX = SIDE_PADDING + columnIndex * (columnWidth + COLUMN_GAP);
+        const y = CONTENT_TOP + rowIndexInColumn * rowHeight;
+        const contentX = columnX + textPadding;
+        const priceX = columnX + columnWidth - textPadding;
+        const differenceX = contentX + codeZoneWidth + gap;
+        const differenceCenterX = differenceX + differenceZoneWidth / 2;
+
+        const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
+        const difference = Number(product.priceChange);
+        const differenceLabel = differenceLabels[index];
+
+        const codeBaseline = y + Math.round((rowCardHeight + codeFontSize * 0.7) / 2);
+        const priceBaseline = y + Math.round((rowCardHeight + detailFontSize * 0.7) / 2);
+        const badgeHeight = detailFontSize + 12;
+        const badgeY = y + (rowCardHeight - badgeHeight) / 2;
+
+        const codeText = `<text x="${contentX}" y="${codeBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(displayDenomination(product.product_code))}</text>`;
+
+        const differenceText = differenceLabel
+          ? `<rect x="${differenceX}" y="${badgeY}" width="${differenceZoneWidth}" height="${badgeHeight}" rx="${badgeHeight / 2}" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/><text x="${differenceCenterX}" y="${badgeY + badgeHeight / 2 + detailFontSize * 0.35}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(differenceLabel)}</text>`
           : "";
-      const differenceX = contentX + codeZoneWidth + gap;
-      const differenceCenterX = differenceX + differenceZoneWidth / 2;
-      const codeLines = [displayDenomination(product.product_code)];
-      const differenceLines = differenceLabel
-        ? wrapText(differenceLabel, differenceZoneWidth - 10, detailFontSize)
-        : [];
-      const contentHeight = Math.max(
-        codeLines.length * lineHeight,
-        differenceLines.length * lineHeight,
-        detailFontSize,
-      );
-      const cardHeight = Math.max(rowCardHeight, contentHeight + 10);
-      const codeTop = y + (cardHeight - codeLines.length * lineHeight) / 2;
-      const differenceTop = y + (cardHeight - differenceLines.length * lineHeight - 6) / 2;
-      const priceBaseline = y + (cardHeight + detailFontSize) / 2 - 1;
-      const codeText = codeLines
-        .map((line, lineIndex) => `<text x="${contentX}" y="${codeTop + codeFontSize + lineIndex * lineHeight}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(line)}</text>`)
-        .join("");
-      const differenceText = differenceLines.length
-        ? `<rect x="${differenceX}" y="${differenceTop}" width="${differenceZoneWidth}" height="${differenceLines.length * lineHeight + 6}" rx="5" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/>${differenceLines.map((line, lineIndex) => `<text x="${differenceCenterX}" y="${differenceTop + detailFontSize + 3 + lineIndex * lineHeight}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(line)}</text>`).join("")}`
-        : "";
-      changeRows.push(`<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${cardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${priceBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`);
-      columnY[columnIndex] += cardHeight + 4;
-    }
-    height = Math.max(...columnY) - 4 + footerSpace;
-    rows = changeRows.join("");
+
+        return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${priceBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`;
+      })
+      .join("");
   }
 
   if (rowHeight < MINIMUM_ROW_HEIGHT || width + height > TELEGRAM_SAFE_MAX_TOTAL) {
