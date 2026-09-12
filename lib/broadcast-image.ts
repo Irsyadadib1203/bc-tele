@@ -280,7 +280,18 @@ export async function makeBroadcastImage(
         const y = CONTENT_TOP + rowIndexInColumn * rowHeight;
         const contentX = columnX + textPadding;
         const priceX = columnX + effectiveColumnWidth - textPadding;
-        const differenceX = contentX + codeZoneWidth + gap;
+        // SESUDAH (benar — pakai variabel global yang sudah ada):
+        // The middle slot is whatever space actually sits between the end of the
+        // code zone and the start of the price zone in this column — which can be
+        // wider than differenceZoneWidth alone when effectiveColumnWidth exceeds
+        // the raw sum of the three zones (e.g. a small catalogue using the tier's
+        // default columnWidth). Centering the badge inside that slot, rather than
+        // anchoring it flush against the code zone, keeps equal breathing room on
+        // both sides instead of all the leftover space collecting on one side only.
+        const middleSlotStart = contentX + codeZoneWidth + gap;
+        const middleSlotEnd = priceX - priceZoneWidth - gap;
+        const middleSlotWidth = middleSlotEnd - middleSlotStart;
+        const differenceX = middleSlotStart + Math.max(0, middleSlotWidth - differenceZoneWidth) / 2;
         const differenceCenterX = differenceX + differenceZoneWidth / 2;
 
         const price = prices[index];
