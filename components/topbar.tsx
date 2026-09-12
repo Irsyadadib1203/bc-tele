@@ -13,15 +13,19 @@ export function Topbar({
   theme: string;
 }) {
   const router = useRouter();
+  const normalizedTheme = theme === "dark" ? "dark" : "light";
+  const [activeTheme, setActiveTheme] = useState<"dark" | "light">(normalizedTheme);
+  const [themeSaving, setThemeSaving] = useState(false);
   useEffect(() => {
-    document.body.dataset.theme = theme;
-  }, [theme]);
+    setActiveTheme(normalizedTheme);
+    document.documentElement.dataset.theme = normalizedTheme;
+    document.body.dataset.theme = normalizedTheme;
+  }, [normalizedTheme]);
   const [menuOpen, setMenuOpen] = useState(false),
     [add, setAdd] = useState(false),
     [name, setName] = useState(""),
     [note, setNote] = useState(""),
-    [failed, setFailed] = useState(false),
-    [confirm, setConfirm] = useState<{ title: string; message: string; run: () => void } | null>(null);
+    [failed, setFailed] = useState(false);
   useEffect(() => {
     const closeMenu = () => setMenuOpen(false);
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -48,10 +52,35 @@ export function Topbar({
       setNote("Tidak dapat terhubung ke server");
     }
   }
-  function changeTheme() {
-    const next = theme === "dark" ? "light" : "dark";
+  async function changeTheme() {
+    if (themeSaving) return;
+    const previous = activeTheme;
+    const next = previous === "dark" ? "light" : "dark";
+    setThemeSaving(true);
+    setActiveTheme(next);
+    document.documentElement.dataset.theme = next;
     document.body.dataset.theme = next;
-    call("/api/settings", { theme: next });
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: next }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Gagal mengubah tampilan");
+      setFailed(false);
+      setNote(`Mode ${next === "dark" ? "dark" : "light"} aktif`);
+      setTimeout(() => setNote(""), 2200);
+      router.refresh();
+    } catch (error) {
+      setActiveTheme(previous);
+      document.documentElement.dataset.theme = previous;
+      document.body.dataset.theme = previous;
+      setFailed(true);
+      setNote(error instanceof Error ? error.message : "Tidak dapat mengubah tampilan");
+    } finally {
+      setThemeSaving(false);
+    }
   }
   async function selectLevel(id: string) {
     if (id === selectedLevelId) return;
@@ -100,15 +129,14 @@ export function Topbar({
           </div>
         </div>
         <div className="top-actions">
-          <button className="btn btn-ghost" onClick={() => setConfirm({ title: "Ubah tampilan", message: "Terapkan perubahan tema tampilan?", run: changeTheme })}>
-            {theme === "dark" ? "☀ Light" : "◐ Dark"}
+          <button className="btn btn-ghost" onClick={() => void changeTheme()} disabled={themeSaving}>
+            {themeSaving ? "Mengubah..." : activeTheme === "dark" ? "☀ Light" : "◐ Dark"}
           </button>
           <ApiButton url="/api/products/sync" className="btn btn-primary" confirm={false} onSuccess={() => router.refresh()}>Refresh semua level</ApiButton>
         </div>
       </header>
       <button className="mobile-nav-backdrop" type="button" aria-label="Tutup menu navigasi" onClick={() => setMenuOpen(false)} />
       {note && <Toast message={note} tone={failed ? "error" : "success"} />}
-      {confirm && <ConfirmModal title={confirm.title} onClose={() => setConfirm(null)}><div className="card-body"><p style={{ margin: 0 }}>{confirm.message}</p></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setConfirm(null)}>Batal</button><button className="btn btn-primary" onClick={() => { const run = confirm.run; setConfirm(null); run(); }}>Ya, lanjutkan</button></div></ConfirmModal>}
       {add && (
         <ConfirmModal title="Konfirmasi tambah level harga" onClose={() => setAdd(false)}>
           <div className="card-body">

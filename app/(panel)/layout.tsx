@@ -14,13 +14,19 @@ export default async function PanelLayout({
     db.priceLevel.findMany(),
     db.settings.findUnique(),
   ]);
+  const theme = settings?.theme === "dark" ? "dark" : "light";
   return (
     <div className="shell">
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `document.documentElement.dataset.theme = "${theme}"; document.body.dataset.theme = "${theme}";`,
+        }}
+      />
       <Sidebar />
       <Topbar
         levels={levels}
         selectedLevelId={settings?.selectedLevelId || levels[0]?.id || null}
-        theme={String(settings?.theme || "light")}
+        theme={theme}
       />
       <FlashNotice />
       {children}

@@ -1,42 +1,167 @@
+/* Dark mode uses a small set of surfaces instead of inverting the light
+   palette. This keeps depth, borders, and interactive states legible. */
 body[data-theme="dark"] {
-  --ink: #f0f0fa;
-  --muted: #a2a3b8;
-  --paper: #202135;
-  --canvas: #151622;
-  --line: #31334b;
-  --brand: #8c87ff;
-  --violet: #af8dff;
-  --shadow: 0 12px 32px #05050e66;
+  color-scheme: dark;
+  --ink: #f4f7ff;
+  --muted: #a9b5cb;
+  --paper: #121a2d;
+  --canvas: #0b1020;
+  --line: #293653;
+  --brand: #7069dc;
+  --violet: #a8a4ff;
+  --green: #35c991;
+  --red: #fb7185;
+  --shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
 }
+
 body[data-theme="dark"] .sidebar,
 body[data-theme="dark"] .topbar,
 body[data-theme="dark"] .card,
 body[data-theme="dark"] .login-card,
-body[data-theme="dark"] .modal {
+body[data-theme="dark"] .modal,
+body[data-theme="dark"] .profile-menu {
   background: var(--paper);
 }
+
+body[data-theme="dark"] .sidebar,
+body[data-theme="dark"] .topbar,
+body[data-theme="dark"] .profile-menu,
 body[data-theme="dark"] .field input,
 body[data-theme="dark"] .field textarea,
 body[data-theme="dark"] .field select,
-body[data-theme="dark"] .prefix-input {
-  background: #292a40;
+body[data-theme="dark"] .prefix-input,
+body[data-theme="dark"] .level-tab,
+body[data-theme="dark"] .check-pill,
+body[data-theme="dark"] .fee-input input,
+body[data-theme="dark"] .broadcast-image-preview,
+body[data-theme="dark"] .fee-tier {
+  border-color: var(--line);
+}
+
+body[data-theme="dark"] .field input,
+body[data-theme="dark"] .field textarea,
+body[data-theme="dark"] .field select,
+body[data-theme="dark"] .prefix-input,
+body[data-theme="dark"] .fee-input input {
+  background: #0d1527;
   color: var(--ink);
-  border-color: #40425c;
 }
-body[data-theme="dark"] .data-table th {
-  background: #28293d;
+
+body[data-theme="dark"] .field input::placeholder,
+body[data-theme="dark"] .field textarea::placeholder,
+body[data-theme="dark"] .prefix-input::placeholder {
+  color: #71809b;
 }
+
+body[data-theme="dark"] .field input:focus,
+body[data-theme="dark"] .field textarea:focus,
+body[data-theme="dark"] .field select:focus {
+  border-color: #9994ff;
+  box-shadow: 0 0 0 3px rgba(153, 148, 255, 0.2);
+}
+
+body[data-theme="dark"] button:focus-visible,
+body[data-theme="dark"] a:focus-visible,
+body[data-theme="dark"] input:focus-visible,
+body[data-theme="dark"] textarea:focus-visible,
+body[data-theme="dark"] select:focus-visible {
+  outline-color: rgba(168, 164, 255, 0.7);
+}
+
+body[data-theme="dark"] .nav-label,
+body[data-theme="dark"] .level-label,
+body[data-theme="dark"] .metric-label,
+body[data-theme="dark"] .data-table th,
+body[data-theme="dark"] .empty,
+body[data-theme="dark"] .log-time {
+  color: #8795af;
+}
+
+body[data-theme="dark"] .nav-link { color: #b7c2d6; }
+
+body[data-theme="dark"] .nav-link:hover,
+body[data-theme="dark"] .sidebar-user:hover { background: #1b2741; }
+
+body[data-theme="dark"] .nav-link.active,
+body[data-theme="dark"] .level-tab.active {
+  background: rgba(126, 117, 237, 0.18);
+  border-color: rgba(153, 148, 255, 0.38);
+  color: #c7c4ff;
+}
+
+body[data-theme="dark"] .sidebar-user { background: #18223a; }
+
+body[data-theme="dark"] .sidebar-bot-status,
+body[data-theme="dark"] .top-status {
+  background: #103b36;
+  color: #75e4bb;
+}
+
+body[data-theme="dark"] .sidebar-bot-status span { color: #50d6a1; }
+
+body[data-theme="dark"] .profile-logout { background: var(--paper); color: #fda4b3; }
+body[data-theme="dark"] .profile-logout:hover { background: #3a1e31; }
+
+body[data-theme="dark"] .avatar { background: #292a5a; color: #c7c4ff; }
+
+body[data-theme="dark"] .broadcast-group-title span,
+body[data-theme="dark"] .eyebrow { color: #aaa6ff; }
+
+body[data-theme="dark"] .level-tab { background: #17213a; color: #afbdd3; }
+
+body[data-theme="dark"] .round-add,
+body[data-theme="dark"] .menu-toggle,
+body[data-theme="dark"] .metric-icon { background: #262653; color: #c3c0ff; }
+
+body[data-theme="dark"] .btn-primary {
+  background: var(--brand);
+  box-shadow: 0 7px 16px rgba(53, 47, 142, 0.44);
+}
+body[data-theme="dark"] .btn-primary:hover { background: #817af0; }
+
+body[data-theme="dark"] .btn-ghost,
+body[data-theme="dark"] .mini-btn { background: #202c46; color: #d7e0f0; }
+
+body[data-theme="dark"] .btn-ghost:hover,
+body[data-theme="dark"] .mini-btn:hover { background: #2a3857; }
+
+body[data-theme="dark"] .btn-danger { background: #421e31; color: #fda4b3; }
+body[data-theme="dark"] .hint { background: #202052; color: #c6c4ff; }
+
+body[data-theme="dark"] .data-table th { background: #172139; }
+
 body[data-theme="dark"] .data-table td,
 body[data-theme="dark"] .card-head,
 body[data-theme="dark"] .sync-row,
-body[data-theme="dark"] .log-item {
-  border-color: var(--line);
+body[data-theme="dark"] .log-item,
+body[data-theme="dark"] .product-list div { border-color: var(--line); }
+
+body[data-theme="dark"] .tag { background: #25265b; color: #c6c4ff; }
+body[data-theme="dark"] .tag.off { background: #202b42; color: #a8b4c9; }
+body[data-theme="dark"] .mini-btn.send { background: #29285f; color: #cbc8ff; }
+body[data-theme="dark"] .switch { background: #4a5872; }
+body[data-theme="dark"] .switch:after { background: #eaf0ff; }
+body[data-theme="dark"] .switch.on { background: #7b74ed; }
+
+body[data-theme="dark"] .check-pill:has(input:checked) {
+  border-color: #8f8aff;
+  background: #24245a;
+  color: #cbc9ff;
 }
-body[data-theme="dark"] .btn-ghost,
-body[data-theme="dark"] .mini-btn {
-  background: #303148;
-  color: #e6e6f3;
+
+body[data-theme="dark"] .broadcast-image-preview { background: #0c1425; }
+body[data-theme="dark"] .product-list { background: #0d1527; color: var(--ink); }
+
+body[data-theme="dark"] .modal-backdrop {
+  background: rgba(3, 7, 18, 0.76);
+  backdrop-filter: blur(3px);
 }
-body[data-theme="dark"] .sidebar-user {
-  background: #292a3e;
-}
+
+body[data-theme="dark"] .toast { background: #202b46; border: 1px solid #3a4a6c; }
+body[data-theme="dark"] .toast.success { background: #115343; border-color: #20735f; }
+body[data-theme="dark"] .toast.error { background: #63263d; border-color: #8d3853; }
+
+body[data-theme="dark"] .danger-zone { border-color: #71304b; }
+body[data-theme="dark"] .danger-zone .card-head { background: #291727; }
+body[data-theme="dark"] .fee-hint { background: #3b3018; color: #f4ca71; }
+body[data-theme="dark"] .sync-dot { background: #3bd29c; }
