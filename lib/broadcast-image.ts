@@ -214,7 +214,7 @@ export async function makeBroadcastImage(
     const columnY = Array.from({ length: columns }, () => CONTENT_TOP);
     const changeRows: string[] = [];
     const contentWidth = columnWidth - textPadding * 2;
-    const gap = 8;
+    const gap = 4;
     const longestPriceLabel = Math.max(
       ...orderedProducts.map((product) => new Intl.NumberFormat("id-ID").format(product.product_price || 0).length),
     );
