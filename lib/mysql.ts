@@ -78,6 +78,7 @@ function toCategory(row: DbRow | null) {
     ? {
         ...row,
         selected: Boolean(row.selected),
+        priceChangeBroadcastEnabled: Boolean(row.priceChangeBroadcastEnabled),
         prefixFilterEnabled: Boolean(row.prefixFilterEnabled),
         products: parseJson(row.products),
       }

@@ -9,6 +9,7 @@ type Category = {
   title: string;
   type: string | null;
   selected: boolean;
+  priceChangeBroadcastEnabled: boolean;
   prefixFilterEnabled: boolean;
   excludedPrefixes: string | null;
   productCount: number;
@@ -142,7 +143,7 @@ export function ProductTable({
               />
             </label>
             <span className="muted">
-              Centang kolom BC untuk memasukkan kategori level ini ke broadcast.
+              Centang kolom BC untuk broadcast manual/jadwal. Aktifkan BC perubahan hanya untuk kategori yang perlu dikirim otomatis saat harganya berubah.
             </span>
           </div>
           {!list.length ? (
@@ -170,6 +171,7 @@ export function ProductTable({
                     </th>
                     <th>Nama kategori</th>
                     <th>Jumlah produk</th>
+                    <th>BC perubahan harga</th>
                     <th>Filter awalan (prefix)</th>
                     <th>Aksi</th>
                   </tr>
@@ -192,6 +194,14 @@ export function ProductTable({
                       </td>
                       <td>
                         <b>{c.productCount}</b> produk
+                      </td>
+                      <td>
+                        <button
+                          className={`switch ${c.priceChangeBroadcastEnabled ? "on" : ""}`}
+                          aria-label={`${c.priceChangeBroadcastEnabled ? "Nonaktifkan" : "Aktifkan"} BC perubahan harga untuk ${c.title}`}
+                          title={`${c.priceChangeBroadcastEnabled ? "Nonaktifkan" : "Aktifkan"} BC perubahan harga otomatis`}
+                          onClick={() => setPending({ title: "Konfirmasi BC perubahan harga", message: `${c.priceChangeBroadcastEnabled ? "Nonaktifkan" : "Aktifkan"} BC perubahan harga otomatis untuk ${c.title}?`, run: () => save(c.id, { priceChangeBroadcastEnabled: !c.priceChangeBroadcastEnabled }) })}
+                        />
                       </td>
                       <td>
                         <div className="prefix-cell">

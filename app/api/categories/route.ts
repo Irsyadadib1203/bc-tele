@@ -4,7 +4,7 @@ import { currentUserId } from "@/lib/auth";
 export async function PATCH(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const { id, levelId, selected, prefixFilterEnabled, excludedPrefixes } =
+  const { id, levelId, selected, priceChangeBroadcastEnabled, prefixFilterEnabled, excludedPrefixes } =
     await req.json();
   if (typeof levelId === "string" && typeof selected === "boolean") {
     const level = await prisma.priceLevel.findUnique({ where: { id: levelId } });
@@ -19,6 +19,8 @@ export async function PATCH(req: Request) {
     );
   const data: any = {};
   if (typeof selected === "boolean") data.selected = selected;
+  if (typeof priceChangeBroadcastEnabled === "boolean")
+    data.priceChangeBroadcastEnabled = priceChangeBroadcastEnabled;
   if (typeof prefixFilterEnabled === "boolean")
     data.prefixFilterEnabled = prefixFilterEnabled;
   if (typeof excludedPrefixes === "string")
