@@ -150,6 +150,28 @@ async function headerPillWidth(label: string, maximum: number) {
   return Math.min(maximum, info.width + 38);
 }
 
+/** Measures actual rendered text width for a given font size/weight, so
+ * layout decisions are based on real glyph widths instead of a character-
+ * count estimate. Mirrors the technique already used by headerPillWidth. */
+async function measureTextWidth(text: string, fontSize: number, fontWeight = 700) {
+  if (!text) return 0;
+  const measureSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="60"><text x="0" y="30" fill="#000" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="${fontWeight}">${escapeXml(text)}</text></svg>`;
+  const { info } = await sharp(Buffer.from(measureSvg))
+    .png()
+    .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 0 })
+    .toBuffer({ resolveWithObject: true });
+  return info.width;
+}
+
+/** Measures the widest of a set of strings at a given font size, only
+ * rendering each distinct string once. */
+async function widestTextWidth(values: string[], fontSize: number, fontWeight = 700) {
+  const unique = Array.from(new Set(values.filter(Boolean)));
+  if (unique.length === 0) return 0;
+  const widths = await Promise.all(unique.map((value) => measureTextWidth(value, fontSize, fontWeight)));
+  return Math.max(...widths);
+}
+
 /** Creates one compact PNG containing every product in the category, laid
  * out as a multi-column grid so large lists (up to ~550 items) stay
  * legible instead of turning into one extremely tall, cramped column. */
@@ -174,7 +196,10 @@ export async function makeBroadcastImage(
   });
   const tier = pickLayout(orderedProducts.length, isPriceChangeNotice);
   const { columns, columnWidth, rowHeight } = tier;
-  const width = canvasWidth(tier);
+  let effectiveColumnWidth = columnWidth; // may grow in the price-change branch below
+  const computeWidth = (colWidth: number) =>
+  SIDE_PADDING * 2 + columns * colWidth + COLUMN_GAP * (columns - 1);
+
   const rowsPerColumn = Math.ceil(orderedProducts.length / columns);
   const footerSpace = feeNotice ? FOOTER_SPACE_WITH_FEE_NOTICE : FOOTER_SPACE;
   const compact = rowHeight < 40;
@@ -203,49 +228,62 @@ export async function makeBroadcastImage(
       })
       .join("");
   } else {
-    // Price-change rows keep both the product code and the change badge on
-    // a single line at the tier font size — never wrapped, never truncated.
+    // Price-change rows keep the product code, badge, and price each on a
+    // single, un-truncated, un-wrapped line. To guarantee zero overlap
+    // between them, every zone is sized from the ACTUAL rendered width of
+    // its longest real content, and the column itself grows to fit — never
+    // the other way around.
     const codeFontSize = rowHeight >= 42 ? 18 : rowHeight >= 40 ? 16 : 15;
     const detailFontSize = rowHeight >= 42 ? 17 : rowHeight >= 40 ? 15 : 14;
-    const contentWidth = columnWidth - textPadding * 2;
-    const gap = 10;
+    const gap = 12;
+    const badgeHorizontalPadding = 22; // 11px on each side of the badge text
 
-    // Precompute every difference label so the badge column can be sized to
-    // the longest value that actually appears — that's what guarantees a
-    // single, unwrapped line for every row, no matter how long the number is.
+    const codes = orderedProducts.map((product) => displayDenomination(product.product_code));
+    const prices = orderedProducts.map((product) => new Intl.NumberFormat("id-ID").format(product.product_price || 0));
     const differenceLabels = orderedProducts.map((product) => {
       const difference = Number(product.priceChange);
       return Number.isFinite(difference) && difference !== 0
         ? `${difference > 0 ? "▲" : "▼"} ${difference > 0 ? "+" : "-"}${new Intl.NumberFormat("id-ID").format(Math.abs(difference))}`
         : "";
     });
-    const longestPriceLabel = Math.max(
-      ...orderedProducts.map((product) => new Intl.NumberFormat("id-ID").format(product.product_price || 0).length),
-    );
-    const longestDifferenceLabel = Math.max(0, ...differenceLabels.map((label) => label.length));
 
-    const priceZoneWidth = Math.ceil(longestPriceLabel * detailFontSize * 0.62) + 6;
-    const differenceZoneWidth = Math.max(
-      44,
-      Math.ceil(longestDifferenceLabel * detailFontSize * 0.62) + 22,
-    );
-    // Code keeps whatever remains; if a code is very long it may extend
-    // toward the badge, same intentional behavior as before — it is never
-    // clipped or shortened.
-    const codeZoneWidth = Math.max(40, contentWidth - priceZoneWidth - differenceZoneWidth - gap * 2);
+    const [codeZoneWidthMeasured, priceZoneWidth, differenceTextWidth] = await Promise.all([
+      widestTextWidth(codes, codeFontSize, 600),
+      widestTextWidth(prices, detailFontSize, 700),
+      widestTextWidth(differenceLabels, detailFontSize, 700),
+    ]);
+    const differenceZoneWidth = differenceTextWidth > 0 ? differenceTextWidth + badgeHorizontalPadding : 0;
+    const codeZoneWidth = codeZoneWidthMeasured;
+
+    // The column must be at least wide enough for padding + all three zones
+    // + the two gaps between them. If the tier's default columnWidth is too
+    // narrow for this catalogue's actual content, we grow it — we never
+    // shrink, wrap, or truncate the content to fit.
+    const requiredColumnWidth =
+      textPadding * 2 + codeZoneWidth + gap + differenceZoneWidth + gap + priceZoneWidth;
+    effectiveColumnWidth = Math.max(columnWidth, requiredColumnWidth);
+    const effectiveWidth =
+      SIDE_PADDING * 2 + columns * effectiveColumnWidth + COLUMN_GAP * (columns - 1);
+
+    if (effectiveWidth + height > TELEGRAM_SAFE_MAX_TOTAL) {
+      throw new Error(
+        "Kode/harga/perubahan pada broadcast ini terlalu panjang untuk muat berdampingan tanpa tabrakan. " +
+          "Kurangi jumlah kolom (pecah broadcast) atau perpendek kode produk.",
+      );
+    }
 
     rows = orderedProducts
       .map((product, index) => {
         const columnIndex = Math.floor(index / rowsPerColumn);
         const rowIndexInColumn = index % rowsPerColumn;
-        const columnX = SIDE_PADDING + columnIndex * (columnWidth + COLUMN_GAP);
+        const columnX = SIDE_PADDING + columnIndex * (effectiveColumnWidth + COLUMN_GAP);
         const y = CONTENT_TOP + rowIndexInColumn * rowHeight;
         const contentX = columnX + textPadding;
-        const priceX = columnX + columnWidth - textPadding;
+        const priceX = columnX + effectiveColumnWidth - textPadding;
         const differenceX = contentX + codeZoneWidth + gap;
         const differenceCenterX = differenceX + differenceZoneWidth / 2;
 
-        const price = new Intl.NumberFormat("id-ID").format(product.product_price || 0);
+        const price = prices[index];
         const difference = Number(product.priceChange);
         const differenceLabel = differenceLabels[index];
 
@@ -254,18 +292,21 @@ export async function makeBroadcastImage(
         const badgeHeight = detailFontSize + 12;
         const badgeY = y + (rowCardHeight - badgeHeight) / 2;
 
-        const codeText = `<text x="${contentX}" y="${codeBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(displayDenomination(product.product_code))}</text>`;
+        const codeText = `<text x="${contentX}" y="${codeBaseline}" fill="#25283d" font-family="Arial, Helvetica, sans-serif" font-size="${codeFontSize}" font-weight="600">${escapeXml(codes[index])}</text>`;
 
         const differenceText = differenceLabel
           ? `<rect x="${differenceX}" y="${badgeY}" width="${differenceZoneWidth}" height="${badgeHeight}" rx="${badgeHeight / 2}" fill="${difference > 0 ? "#fde7eb" : "#e3f5eb"}"/><text x="${differenceCenterX}" y="${badgeY + badgeHeight / 2 + detailFontSize * 0.35}" text-anchor="middle" fill="${difference > 0 ? "#d0445f" : "#178757"}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${escapeXml(differenceLabel)}</text>`
           : "";
 
-        return `<g><rect x="${columnX}" y="${y}" width="${columnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${priceBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`;
+        return `<g><rect x="${columnX}" y="${y}" width="${effectiveColumnWidth}" height="${rowCardHeight}" rx="${radius}" fill="#ffffff" fill-opacity="0.97"/>${codeText}${differenceText}<text x="${priceX}" y="${priceBaseline}" text-anchor="end" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="${detailFontSize}" font-weight="700">${price}</text></g>`;
       })
       .join("");
-  }
 
-  if (rowHeight < MINIMUM_ROW_HEIGHT || width + height > TELEGRAM_SAFE_MAX_TOTAL) {
+    // The canvas below is built from this effective width, not the tier default.
+    // eslint-disable-next-line no-param-reassign -- intentional local override
+  }
+  const finalWidth = computeWidth(effectiveColumnWidth);
+  if (rowHeight < MINIMUM_ROW_HEIGHT || finalWidth + height > TELEGRAM_SAFE_MAX_TOTAL) {
     throw new Error(
       "Jumlah produk terlalu banyak untuk satu gambar Telegram yang rapi.",
     );
@@ -273,12 +314,12 @@ export async function makeBroadcastImage(
 
   const countLabel = `${orderedProducts.length} produk`;
   const headerLabel = displayHeaderLabel(headerTitle, levelName);
-  const pillWidth = await headerPillWidth(headerLabel, width - 260);
+  const pillWidth = await headerPillWidth(headerLabel, finalWidth - 260);
 
   const feeNoticeText = feeNotice
-    ? `<text x="60" y="${height - 62}" fill="#ffffff" fill-opacity="0.95" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">${escapeXml(productLabel(feeNotice, width - 120))}</text>`
+    ? `<text x="60" y="${height - 62}" fill="#ffffff" fill-opacity="0.95" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">${escapeXml(productLabel(feeNotice, finalWidth - 120))}</text>`
     : "";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="${pillWidth}" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">${escapeXml(headerLabel)}</text><text x="${width - 54}" y="76" text-anchor="end" fill="#ffffff" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600">${escapeXml(countLabel)}</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title, width - 116))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${rows}${feeNoticeText}<text x="60" y="${height - 30}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalWidth}" height="${height}" viewBox="0 0 ${finalWidth} ${height}"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${escapeXml(primary)}"/><stop offset="1" stop-color="${escapeXml(accent)}"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#bg)"/><rect x="54" y="48" width="${pillWidth}" height="42" rx="8" fill="#fff" fill-opacity="0.95"/><text x="73" y="76" fill="${escapeXml(primary)}" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" letter-spacing="1.5">${escapeXml(headerLabel)}</text><text x="${finalWidth - 54}" y="76" text-anchor="end" fill="#ffffff" fill-opacity="0.9" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600">${escapeXml(countLabel)}</text><text x="58" y="153" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800">${escapeXml(productLabel(title, finalWidth - 116))}</text><text x="60" y="202" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400">${escapeXml(updatedAtLabel(updatedAt))}</text>${rows}${feeNoticeText}<text x="60" y="${height - 30}" fill="#f5f5ff" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Harga tercantum dalam rupiah (IDR)</text></svg>`;
 
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
