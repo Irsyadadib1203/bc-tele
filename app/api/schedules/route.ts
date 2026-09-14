@@ -17,8 +17,7 @@ export async function POST(req: Request) {
         ? broadcastFormat.slice("custom:".length)
         : null;
     const isPriceFormat = ["image", "text", "both"].includes(broadcastFormat);
-    if (!isPriceFormat && !customId)
-      return NextResponse.json({ error: "Format broadcast tidak valid" }, { status: 400 });
+    if (!isPriceFormat && !customId) return NextResponse.json({ error: "Format broadcast tidak valid" }, { status: 400 });
     if (typeof levelId !== "string" || !(await db.priceLevel.findUnique({ where: { id: levelId } })))
       return NextResponse.json({ error: "Pilih level harga yang valid" }, { status: 400 });
     if (customId) {
