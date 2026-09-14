@@ -333,11 +333,11 @@ export const db: any = {
         (await findOne<{ count: number } & DbRow>(`SELECT COUNT(*) AS count FROM \`CustomBroadcast\`${predicate}`, keys.map((key) => where[key])))?.count ?? 0,
       );
     },
-    create: async ({ data }: { data: { levelId: string; name: string; content: string } }) => {
+    create: async ({ data }: { data: { levelId: string; name: string; content: string; targetGroup?: string } }) => {
       const id = randomUUID();
       await execute(
-        "INSERT INTO `CustomBroadcast` (id, levelId, name, content, createdAt) VALUES (?, ?, ?, ?, NOW())",
-        [id, data.levelId, data.name, data.content],
+        "INSERT INTO `CustomBroadcast` (id, levelId, name, content, targetGroup, createdAt) VALUES (?, ?, ?, ?, ?, NOW())",
+        [id, data.levelId, data.name, data.content, data.targetGroup ?? "main"],
       );
       return findOne("SELECT * FROM `CustomBroadcast` WHERE id = ?", [id]);
     },

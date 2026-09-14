@@ -39,11 +39,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Jadwal broadcast ditambahkan" });
     }
     const schedule = await db.broadcastSchedule.findUnique({ where: { id } });
-    if (!schedule) return NextResponse.json({ error: "Jadwal tidak ditemukan" }, { status: 404 });
+    if (!schedule || schedule.levelId !== levelId) return NextResponse.json({ error: "Jadwal tidak ditemukan pada level ini" }, { status: 404 });
     await db.broadcastSchedule.update({ where: { id }, data });
     return NextResponse.json({ message: "Jadwal broadcast diperbarui" });
   }
   if (action === "toggle" && id) {
+    if (typeof levelId !== "string") return NextResponse.json({ error: "Level harga tidak valid" }, { status: 400 });
+    const schedule = await db.broadcastSchedule.findUnique({ where: { id } });
+    if (!schedule || schedule.levelId !== levelId) return NextResponse.json({ error: "Jadwal tidak ditemukan pada level ini" }, { status: 404 });
     await db.broadcastSchedule.update({
       where: { id },
       data: { enabled: !!enabled },
@@ -53,6 +56,9 @@ export async function POST(req: Request) {
     });
   }
   if (action === "delete" && id) {
+    if (typeof levelId !== "string") return NextResponse.json({ error: "Level harga tidak valid" }, { status: 400 });
+    const schedule = await db.broadcastSchedule.findUnique({ where: { id } });
+    if (!schedule || schedule.levelId !== levelId) return NextResponse.json({ error: "Jadwal tidak ditemukan pada level ini" }, { status: 404 });
     await db.broadcastSchedule.delete({ where: { id } });
     return NextResponse.json({ message: "Jadwal dihapus" });
   }

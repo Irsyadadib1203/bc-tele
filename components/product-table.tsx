@@ -4,6 +4,7 @@ import { ConfirmModal, Toast } from "./ui";
 import { priceWithSellerFee, type FeeConfiguration } from "@/lib/fee";
 import { productsForPriceList } from "@/lib/product-order";
 import { formatWibDownloadDateTime } from "@/lib/time";
+import { levelTargetChatIds, targetGroup, targetGroupLabel } from "@/lib/telegram-targets";
 type Category = {
   id: string;
   title: string;
@@ -20,11 +21,13 @@ export function ProductTable({
   levelId,
   levelName,
   feeConfiguration,
+  targetConfiguration,
 }: {
   categories: Category[];
   levelId: string | null;
   levelName: string;
   feeConfiguration: FeeConfiguration;
+  targetConfiguration: Record<string, unknown>;
 }) {
   const [list, setList] = useState(categories);
   const [term, setTerm] = useState("");
@@ -40,6 +43,11 @@ export function ProductTable({
   );
   const selectedCount = list.filter((category) => category.selected).length;
   const allSelected = list.length > 0 && selectedCount === list.length;
+  function broadcastDestination(format: "image" | "text") {
+    const route = targetGroup(format === "text" ? targetConfiguration.priceTextTargetGroup : targetConfiguration.priceImageTargetGroup);
+    const count = levelTargetChatIds(targetConfiguration, route).length;
+    return `${targetGroupLabel(route)}${count ? ` (${count} target aktif)` : " (belum ada target)"}`;
+  }
   useEffect(() => {
     setList(categories);
   }, [categories]);
@@ -229,13 +237,13 @@ export function ProductTable({
                           </button>
                           <button
                             className="mini-btn send"
-                            onClick={() => setPending({ title: "Konfirmasi broadcast gambar", message: `Kirim gambar daftar harga kategori ${c.title} ke Telegram sekarang?`, run: () => broadcast(c, "image") })}
+                            onClick={() => setPending({ title: "Konfirmasi broadcast gambar", message: `Kirim gambar daftar harga kategori ${c.title} ke ${broadcastDestination("image")} sekarang?`, run: () => broadcast(c, "image") })}
                           >
                             BC Gambar
                           </button>
                           <button
                             className="mini-btn send"
-                            onClick={() => setPending({ title: "Konfirmasi broadcast teks", message: `Kirim teks daftar harga kategori ${c.title} ke Telegram sekarang?`, run: () => broadcast(c, "text") })}
+                            onClick={() => setPending({ title: "Konfirmasi broadcast teks", message: `Kirim teks daftar harga kategori ${c.title} ke ${broadcastDestination("text")} sekarang?`, run: () => broadcast(c, "text") })}
                           >
                             BC Teks
                           </button>
@@ -271,7 +279,7 @@ export function ProductTable({
             </button>
             <button
               className="btn btn-primary"
-              onClick={() => setPending({ title: "Konfirmasi broadcast gambar", message: `Kirim gambar daftar harga kategori ${preview.title} ke Telegram sekarang?`, run: () => broadcast(preview, "image") })}
+              onClick={() => setPending({ title: "Konfirmasi broadcast gambar", message: `Kirim gambar daftar harga kategori ${preview.title} ke ${broadcastDestination("image")} sekarang?`, run: () => broadcast(preview, "image") })}
             >
               Kirim sekarang
             </button>

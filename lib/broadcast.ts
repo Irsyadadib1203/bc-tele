@@ -2,7 +2,7 @@ import { makeBroadcastImage } from "@/lib/broadcast-image";
 import { priceWithSellerFee } from "@/lib/fee";
 import { db } from "@/lib/mysql";
 import { productsForPriceList } from "@/lib/product-order";
-import { telegramTargetChatIds } from "@/lib/telegram-targets";
+import { levelTargetChatIds, priceFormatTargetGroup, targetGroupLabel } from "@/lib/telegram-targets";
 import { formatWibDateTime } from "@/lib/time";
 
 type Product = {
@@ -168,9 +168,10 @@ export async function sendPriceChangeBroadcast(
   const level = typeof category.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: category.levelId } })
     : null;
-  const targets = telegramTargetChatIds(level);
+  const destination = priceFormatTargetGroup(level, "change");
+  const targets = levelTargetChatIds(level, destination);
   if (!settings?.botToken || !targets.length) {
-    throw new Error("Bot Token dan Target Chat ID harus dikonfigurasi.");
+    throw new Error(`Bot Token dan ${targetGroupLabel(destination)} untuk level ini harus dikonfigurasi.`);
   }
   const visibleProducts = includedProducts(category) as Product[];
   if (!visibleProducts.length) return false;
@@ -214,7 +215,7 @@ export async function sendPriceChangeBroadcast(
     }
   }
   if (failures.length) throw telegramTargetError(failures);
-  await db.activityLog.create({ data: { type: "AUTO_PRICE_CHANGE", message: `BC perubahan harga ${title} berhasil dikirim ke ${targets.length} target (${productsWithDifference.length} produk)`, meta: { categoryId: category.id } } });
+  await db.activityLog.create({ data: { type: "AUTO_PRICE_CHANGE", message: `[Level ${level?.name ?? "-"}] BC perubahan harga ${title} berhasil dikirim ke ${targetGroupLabel(destination)} (${targets.length} target, ${productsWithDifference.length} produk)`, meta: { categoryId: category.id, levelId: category.levelId, targetGroup: destination, targetCount: targets.length } } });
   return true;
 }
 async function telegramRequest(url: string, init: RequestInit) {
@@ -235,8 +236,9 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
     productsWithFee.length,
   );
   const telegramUrl = `https://api.telegram.org/bot${settings.botToken}`;
-  const targets = telegramTargetChatIds(level);
-  if (!targets.length) throw new Error("Target Chat ID harus dikonfigurasi.");
+  const destination = priceFormatTargetGroup(level, format);
+  const targets = levelTargetChatIds(level, destination);
+  if (!targets.length) throw new Error(`${targetGroupLabel(destination)} untuk level ini belum dikonfigurasi.`);
 
   if (format === "text") {
     const lines = productsForPriceBroadcast(productsWithFee).map(
@@ -253,7 +255,7 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
       }
     }
     if (failures.length) throw telegramTargetError(failures);
-    await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast teks ${title} berhasil dikirim ke ${targets.length} target (${productsWithFee.length} produk)`, meta: { categoryId: category.id } } });
+    await db.activityLog.create({ data: { type: "BROADCAST", message: `[Level ${level?.name ?? "-"}] Broadcast teks ${title} berhasil dikirim ke ${targetGroupLabel(destination)} (${targets.length} target, ${productsWithFee.length} produk)`, meta: { categoryId: category.id, levelId: category.levelId, targetGroup: destination, targetCount: targets.length } } });
     return title;
   }
 
@@ -272,7 +274,7 @@ async function sendCategory(category: any, settings: any, format: BroadcastForma
     }
   }
   if (failures.length) throw telegramTargetError(failures);
-  await db.activityLog.create({ data: { type: "BROADCAST", message: `Broadcast gambar ${title} berhasil dikirim ke ${targets.length} target (${productsWithFee.length} produk, 1 gambar)`, meta: { categoryId: category.id } } });
+  await db.activityLog.create({ data: { type: "BROADCAST", message: `[Level ${level?.name ?? "-"}] Broadcast gambar ${title} berhasil dikirim ke ${targetGroupLabel(destination)} (${targets.length} target, ${productsWithFee.length} produk, 1 gambar)`, meta: { categoryId: category.id, levelId: category.levelId, targetGroup: destination, targetCount: targets.length } } });
   return title;
 }
 

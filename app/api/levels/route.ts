@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/mysql";
 import { currentUserId } from "@/lib/auth";
 import { normalizeFeeOverrides } from "@/lib/fee";
-import { telegramTargetChatIds } from "@/lib/telegram-targets";
+import { isTargetGroup, telegramTargetChatIds } from "@/lib/telegram-targets";
 export async function POST(req: Request) {
   if (!(await currentUserId()))
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
-  const { action, id, name, apiKey, targetChatId, enabled, feeEnabled, feeSmall, feeMedium, feeLarge, feeOverrides } = await req.json();
+  const { action, id, name, apiKey, targetMainChatId, targetPersonalChatId, priceChangeTargetGroup, priceTextTargetGroup, priceImageTargetGroup, enabled, feeEnabled, feeSmall, feeMedium, feeLarge, feeOverrides } = await req.json();
   if (action === "create") {
     if (!name?.trim())
       return NextResponse.json(
@@ -39,11 +39,22 @@ export async function POST(req: Request) {
         { error: "Nama level wajib diisi" },
         { status: 400 },
       );
+    if (![priceChangeTargetGroup, priceTextTargetGroup, priceImageTargetGroup].every(isTargetGroup)) {
+      return NextResponse.json({ error: "Tujuan broadcast tidak valid" }, { status: 400 });
+    }
     await db.priceLevel.update({
       where: { id },
-      data: { name: name.trim(), apiKey: apiKey || null, targetChatId: telegramTargetChatIds({ targetChatId }).join("\n") || null },
+      data: {
+        name: name.trim(),
+        apiKey: apiKey || null,
+        targetMainChatId: telegramTargetChatIds({ targetChatId: targetMainChatId }).join("\n") || null,
+        targetPersonalChatId: telegramTargetChatIds({ targetChatId: targetPersonalChatId }).join("\n") || null,
+        priceChangeTargetGroup,
+        priceTextTargetGroup,
+        priceImageTargetGroup,
+      },
     });
-    return NextResponse.json({ message: "Level dan API key diperbarui" });
+    return NextResponse.json({ message: "Level, target chat, dan aturan broadcast diperbarui" });
   }
   if (action === "updateFee" && id) {
     const fees = [feeSmall, feeMedium, feeLarge];
@@ -66,6 +77,13 @@ export async function POST(req: Request) {
         { error: "Minimal harus ada satu level harga" },
         { status: 400 },
       );
+    const [customBroadcasts, schedules] = await Promise.all([
+      db.customBroadcast.findMany({ where: { levelId: id } }),
+      db.broadcastSchedule.findMany({ where: { levelId: id } }),
+    ]);
+    if (customBroadcasts.length || schedules.length) {
+      return NextResponse.json({ error: `Level ini masih memiliki ${customBroadcasts.length} BC custom dan ${schedules.length} jadwal. Hapus keduanya terlebih dahulu agar tidak meninggalkan data terpisah.` }, { status: 409 });
+    }
     await db.productCategory.deleteMany({ where: { levelId: id } });
     await db.priceLevel.delete({ where: { id } });
     const settings = await db.settings.findUnique();

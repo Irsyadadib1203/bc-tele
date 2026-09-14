@@ -1,7 +1,19 @@
 "use client";
 import { useState } from "react";
 import { ConfirmModal, ConfirmedForm, Toast } from "./ui";
-type Level = { id: string; name: string; apiKey: string | null; targetChatId: string | null } | null;
+type TargetGroup = "main" | "personal" | "both";
+type Level = {
+  id: string; name: string; apiKey: string | null;
+  targetMainChatId: string | null; targetPersonalChatId: string | null;
+  priceChangeTargetGroup: TargetGroup | null;
+  priceTextTargetGroup: TargetGroup | null;
+  priceImageTargetGroup: TargetGroup | null;
+} | null;
+const targetOptions: { value: TargetGroup; label: string }[] = [
+  { value: "main", label: "Chat utama" },
+  { value: "personal", label: "Chat pribadi" },
+  { value: "both", label: "Chat utama dan pribadi" },
+];
 export function ConnectionSettings({
   level,
   botToken,
@@ -11,7 +23,11 @@ export function ConnectionSettings({
 }) {
   const [name, setName] = useState(level?.name || ""),
     [apiKey, setApiKey] = useState(level?.apiKey || ""),
-    [targetChatId, setTargetChatId] = useState(level?.targetChatId || ""),
+    [targetMainChatId, setTargetMainChatId] = useState(level?.targetMainChatId || ""),
+    [targetPersonalChatId, setTargetPersonalChatId] = useState(level?.targetPersonalChatId || ""),
+    [priceChangeTargetGroup, setPriceChangeTargetGroup] = useState<TargetGroup>(level?.priceChangeTargetGroup || "main"),
+    [priceTextTargetGroup, setPriceTextTargetGroup] = useState<TargetGroup>(level?.priceTextTargetGroup || "main"),
+    [priceImageTargetGroup, setPriceImageTargetGroup] = useState<TargetGroup>(level?.priceImageTargetGroup || "main"),
     [note, setNote] = useState(""),
     [failed, setFailed] = useState(false),
     [pending, setPending] = useState<{ title: string; message: string; body: unknown } | null>(null);
@@ -51,21 +67,33 @@ export function ConnectionSettings({
                 />
               </label>
               <label className="field">
-                Target chat / channel untuk {level.name}
-                <textarea value={targetChatId} onChange={(e) => setTargetChatId(e.target.value)} rows={4} placeholder={"-1001234567890\n@namachannel"} />
+                Target chat utama untuk {level.name}
+                <textarea value={targetMainChatId} onChange={(e) => setTargetMainChatId(e.target.value)} rows={4} placeholder={"-1001234567890\n@namachannel"} />
               </label>
-              <p className="muted">Target Telegram hanya digunakan oleh BC dan jadwal pada level ini.</p>
+              <label className="field">
+                Target chat pribadi untuk {level.name}
+                <textarea value={targetPersonalChatId} onChange={(e) => setTargetPersonalChatId(e.target.value)} rows={4} placeholder={"123456789\n987654321"} />
+              </label>
+              <p className="muted">Satu ID per baris. Kedua daftar ini hanya digunakan oleh broadcast dan jadwal pada level ini.</p>
+              <div className="field">
+                Aturan tujuan broadcast
+                <div className="checkbox-list">
+                  <BroadcastTargetRule label="BC perubahan harga otomatis" value={priceChangeTargetGroup} onChange={setPriceChangeTargetGroup} />
+                  <BroadcastTargetRule label="BC harga teks" value={priceTextTargetGroup} onChange={setPriceTextTargetGroup} />
+                  <BroadcastTargetRule label="BC harga gambar" value={priceImageTargetGroup} onChange={setPriceImageTargetGroup} />
+                </div>
+              </div>
               <button
                 className="btn btn-primary"
                 style={{ marginTop: 20 }}
-                onClick={() => setPending({ title: "Konfirmasi level", message: "Simpan perubahan nama level, API key, dan target Telegram ini?", body: { action: "update", id: level.id, name, apiKey, targetChatId } })}
+                onClick={() => setPending({ title: "Konfirmasi level", message: "Simpan perubahan nama level, API key, target chat, dan aturan broadcast ini?", body: { action: "update", id: level.id, name, apiKey, targetMainChatId, targetPersonalChatId, priceChangeTargetGroup, priceTextTargetGroup, priceImageTargetGroup } })}
               >
                 Simpan level & API key
               </button>
               <button
                 className="btn btn-danger"
                 style={{ marginTop: 20, marginLeft: 10 }}
-                onClick={() => setPending({ title: "Hapus level harga", message: `Hapus level ${level.name}? Produk pada level ini juga akan terhapus.`, body: { action: "delete", id: level.id } })}
+                onClick={() => setPending({ title: "Hapus level harga", message: `Hapus level ${level.name}? Produk pada level ini juga akan terhapus. BC custom dan jadwal harus dihapus terlebih dahulu.`, body: { action: "delete", id: level.id } })}
               >
                 Hapus level ini
               </button>
@@ -97,4 +125,8 @@ export function ConnectionSettings({
       {pending && <ConfirmModal title={pending.title} onClose={() => setPending(null)}><div className="card-body"><p style={{ margin: 0 }}>{pending.message}</p></div><div className="modal-actions"><button className="btn btn-ghost" onClick={() => setPending(null)}>Batal</button><button className="btn btn-primary" onClick={() => { const body = pending.body; setPending(null); api("/api/levels", body); }}>Ya, lanjutkan</button></div></ConfirmModal>}
     </>
   );
+}
+
+function BroadcastTargetRule({ label, value, onChange }: { label: string; value: TargetGroup; onChange: (value: TargetGroup) => void }) {
+  return <label className="field" style={{ margin: 0 }}>{label}<select value={value} onChange={(event) => onChange(event.target.value as TargetGroup)}>{targetOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }

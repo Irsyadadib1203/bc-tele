@@ -32,6 +32,7 @@ export default async function ProductsPage() {
         levelId={level?.id || null}
         levelName={level?.name || "-"}
         feeConfiguration={level ?? {}}
+        targetConfiguration={level ?? {}}
       />
     </main>
   );

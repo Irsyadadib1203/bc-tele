@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/auth";
 import { sendCustomBroadcast } from "@/lib/custom-broadcast";
 import { db } from "@/lib/mysql";
+import { isTargetGroup } from "@/lib/telegram-targets";
 
 function details(value: unknown) {
   if (typeof value !== "string") return null;
@@ -24,8 +25,9 @@ export async function POST(request: Request) {
     const name = details(body.name);
     if (!name) return NextResponse.json({ error: "Nama BC custom wajib diisi" }, { status: 400 });
     if (name.length > 100) return NextResponse.json({ error: "Nama BC custom maksimal 100 karakter" }, { status: 400 });
+    if (!isTargetGroup(body.targetGroup)) return NextResponse.json({ error: "Tujuan BC custom tidak valid" }, { status: 400 });
     const created = await db.customBroadcast.create({
-      data: { levelId, name, content: typeof body.content === "string" ? body.content : "" },
+      data: { levelId, name, content: typeof body.content === "string" ? body.content : "", targetGroup: body.targetGroup },
     });
     return NextResponse.json({ message: `BC custom ${created.name} ditambahkan`, item: created });
   }
@@ -37,13 +39,16 @@ export async function POST(request: Request) {
     if (!name) return NextResponse.json({ error: "Nama BC custom wajib diisi" }, { status: 400 });
     if (name.length > 100) return NextResponse.json({ error: "Nama BC custom maksimal 100 karakter" }, { status: 400 });
     if (typeof body.content !== "string") return NextResponse.json({ error: "Isi BC custom tidak valid" }, { status: 400 });
-    await db.customBroadcast.update({ where: { id: body.id }, data: { name, content: body.content } });
+    if (!isTargetGroup(body.targetGroup)) return NextResponse.json({ error: "Tujuan BC custom tidak valid" }, { status: 400 });
+    await db.customBroadcast.update({ where: { id: body.id }, data: { name, content: body.content, targetGroup: body.targetGroup } });
     return NextResponse.json({ message: "BC custom disimpan" });
   }
 
   if (action === "delete" && typeof body.id === "string") {
     const customBroadcast = await db.customBroadcast.findUnique({ where: { id: body.id } });
     if (!customBroadcast || customBroadcast.levelId !== levelId) return NextResponse.json({ error: "BC custom tidak ditemukan pada level ini" }, { status: 404 });
+    const linkedSchedules = await db.broadcastSchedule.findMany({ where: { customBroadcastId: body.id } });
+    if (linkedSchedules.length) return NextResponse.json({ error: `BC custom ini masih dipakai oleh ${linkedSchedules.length} jadwal. Hapus jadwal terkait terlebih dahulu.` }, { status: 409 });
     await db.customBroadcast.delete({ where: { id: body.id } });
     return NextResponse.json({ message: "BC custom dihapus" });
   }

@@ -10,10 +10,13 @@ type Schedule = {
   broadcastFormat?: PriceFormat | "custom"; levelId?: string | null; customBroadcastId?: string | null;
 };
 type PriceLevel = { id: string; name: string };
+type TargetGroup = "main" | "personal" | "both";
+type TargetRules = { priceTextTargetGroup?: TargetGroup | null; priceImageTargetGroup?: TargetGroup | null };
 const dayNames: Record<string, string> = { mon: "Sen", tue: "Sel", wed: "Rab", thu: "Kam", fri: "Jum", sat: "Sab", sun: "Min" };
 const priceFormatNames: Record<PriceFormat, string> = { image: "Gambar harga", text: "Teks harga", both: "Gambar + teks harga" };
+const targetNames: Record<TargetGroup, string> = { main: "Chat utama", personal: "Chat pribadi", both: "Chat utama dan pribadi" };
 
-export function ScheduleManager({ initial, masterEnabled, customBroadcasts, levels, defaultLevelId, levelId }: { initial: Schedule[]; masterEnabled: boolean; customBroadcasts: CustomBroadcast[]; levels: PriceLevel[]; defaultLevelId: string | null; levelId: string | null }) {
+export function ScheduleManager({ initial, masterEnabled, customBroadcasts, levels, defaultLevelId, levelId, targetRules }: { initial: Schedule[]; masterEnabled: boolean; customBroadcasts: CustomBroadcast[]; levels: PriceLevel[]; defaultLevelId: string | null; levelId: string | null; targetRules: TargetRules }) {
   const [items] = useState(initial);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
@@ -55,7 +58,7 @@ export function ScheduleManager({ initial, masterEnabled, customBroadcasts, leve
       </div>
       <div className="card-body">
         {!master && <div className="hint">Semua jadwal sedang dinonaktifkan dari kontrol utama.</div>}
-        {!items.length ? <div className="empty">Belum ada jadwal broadcast.</div> : <ScheduleRows items={items} customBroadcasts={customBroadcasts} levels={levels} confirm={setPending} call={call} edit={setEditing} />}
+        {!items.length ? <div className="empty">Belum ada jadwal broadcast.</div> : <ScheduleRows items={items} customBroadcasts={customBroadcasts} levels={levels} targetRules={targetRules} levelId={levelId} confirm={setPending} call={call} edit={setEditing} />}
       </div>
     </section>
     {note && <Toast message={note} tone={failed ? "error" : "success"} />}
@@ -65,17 +68,25 @@ export function ScheduleManager({ initial, masterEnabled, customBroadcasts, leve
   </>;
 }
 
-function ScheduleRows({ items, customBroadcasts, levels, confirm, call, edit }: { items: Schedule[]; customBroadcasts: CustomBroadcast[]; levels: PriceLevel[]; confirm: (value: { title: string; message: string; run: () => void }) => void; call: (body: unknown) => void; edit: (schedule: Schedule) => void }) {
+function ScheduleRows({ items, customBroadcasts, levels, targetRules, levelId, confirm, call, edit }: { items: Schedule[]; customBroadcasts: CustomBroadcast[]; levels: PriceLevel[]; targetRules: TargetRules; levelId: string | null; confirm: (value: { title: string; message: string; run: () => void }) => void; call: (body: unknown) => void; edit: (schedule: Schedule) => void }) {
   return <div className="table-wrap"><table className="data-table"><thead><tr><th>Status</th><th>Nama</th><th>Hari</th><th>Waktu</th><th>Format</th><th>Target</th><th>Aksi</th></tr></thead><tbody>{items.map((schedule) => {
     const custom = schedule.broadcastFormat === "custom" ? customBroadcasts.find((item) => item.id === schedule.customBroadcastId) : null;
-    const level = schedule.broadcastFormat === "custom" ? null : levels.find((item) => item.id === schedule.levelId);
+    const level = levels.find((item) => item.id === schedule.levelId);
     const format = custom ? `BC custom — ${custom.name}` : schedule.broadcastFormat === "custom" ? "BC custom dihapus" : priceFormatNames[schedule.broadcastFormat ?? "image"];
     return <tr key={schedule.id}>
-      <td><button className={`switch ${schedule.enabled ? "on" : ""}`} onClick={() => call({ action: "toggle", id: schedule.id, enabled: !schedule.enabled })} /></td>
-      <td><b>{schedule.name}</b></td><td>{schedule.days.split(",").map((day) => dayNames[day] ?? day).join(", ")}</td><td><span className="tag">{schedule.time} WIB</span></td><td>{format}</td><td>{schedule.broadcastFormat === "custom" ? "Pesan custom" : level ? `${level.name} · kategori pilihan` : "Level belum dipilih (jadwal lama)"}</td>
-      <td><div className="actions"><button className="mini-btn" onClick={() => edit(schedule)}>Edit</button><button className="mini-btn" onClick={() => confirm({ title: "Hapus jadwal", message: `Hapus jadwal ${schedule.name}?`, run: () => call({ action: "delete", id: schedule.id }) })}>Hapus</button></div></td>
+      <td><button className={`switch ${schedule.enabled ? "on" : ""}`} onClick={() => call({ action: "toggle", id: schedule.id, levelId, enabled: !schedule.enabled })} /></td>
+      <td><b>{schedule.name}</b></td><td>{schedule.days.split(",").map((day) => dayNames[day] ?? day).join(", ")}</td><td><span className="tag">{schedule.time} WIB</span></td><td>{format}</td><td>{level ? `${level.name} · ${scheduleTargetLabel(schedule, custom ?? null, targetRules)}` : "Level belum dipilih (jadwal lama)"}</td>
+      <td><div className="actions"><button className="mini-btn" onClick={() => edit(schedule)}>Edit</button><button className="mini-btn" onClick={() => confirm({ title: "Hapus jadwal", message: `Hapus jadwal ${schedule.name}?`, run: () => call({ action: "delete", id: schedule.id, levelId }) })}>Hapus</button></div></td>
     </tr>;
   })}</tbody></table></div>;
+}
+
+function scheduleTargetLabel(schedule: Schedule, custom: CustomBroadcast | null, rules: TargetRules) {
+  if (schedule.broadcastFormat === "custom") return custom ? targetNames[custom.targetGroup] : "BC custom dihapus";
+  const text = targetNames[rules.priceTextTargetGroup || "main"];
+  const image = targetNames[rules.priceImageTargetGroup || "main"];
+  if (schedule.broadcastFormat === "both") return `Gambar: ${image}; teks: ${text}`;
+  return schedule.broadcastFormat === "text" ? text : image;
 }
 
 function ScheduleForm({ close, submit, customBroadcasts, levels, defaultLevelId, initial }: { close: () => void; submit: (body: unknown) => void; customBroadcasts: CustomBroadcast[]; levels: PriceLevel[]; defaultLevelId: string | null; initial?: Schedule }) {

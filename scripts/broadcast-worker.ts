@@ -2,6 +2,7 @@ import { broadcastCategories, type BroadcastFormat } from "../lib/broadcast";
 import { sendCustomBroadcast } from "../lib/custom-broadcast";
 import { db, pool } from "../lib/mysql";
 import { syncAllLevels } from "../lib/product-sync";
+import { priceFormatTargetGroup, targetGroupLabel } from "../lib/telegram-targets";
 
 const POLL_MS = Math.max(5_000, Number(process.env.SCHEDULE_POLLING_MS || 15_000));
 let running = false;
@@ -55,7 +56,7 @@ async function runSchedule(schedule: any, settings: any) {
       await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} tidak dijalankan: BC custom tidak ditemukan pada level jadwal.` } });
       return;
     }
-    await db.activityLog.create({ data: { type: "SCHEDULE", message: `Jadwal ${schedule.name} mengirim BC custom ${custom.name}.` } });
+    await db.activityLog.create({ data: { type: "SCHEDULE", message: `[Level ${level.name}] Jadwal ${schedule.name} mengirim BC custom ${custom.name} ke ${targetGroupLabel(custom.targetGroup)}.`, meta: { scheduleId: schedule.id, levelId, targetGroup: custom.targetGroup } } });
     try {
       await sendCustomBroadcast(custom, settings);
       await db.activityLog.create({ data: { type: "SCHEDULE", message: `Jadwal ${schedule.name} selesai mengirim BC custom.` } });
@@ -72,7 +73,10 @@ async function runSchedule(schedule: any, settings: any) {
   }
   const selectedFormat = schedule.broadcastFormat === "text" || schedule.broadcastFormat === "both" ? schedule.broadcastFormat : "image";
   const formats: BroadcastFormat[] = selectedFormat === "both" ? ["image", "text"] : [selectedFormat];
-  await db.activityLog.create({ data: { type: "SCHEDULE", message: `Jadwal ${schedule.name} dimulai (${selectedFormat}) untuk ${categories.length} kategori.` } });
+  const routeSummary = selectedFormat === "both"
+    ? `gambar: ${targetGroupLabel(priceFormatTargetGroup(level, "image"))}; teks: ${targetGroupLabel(priceFormatTargetGroup(level, "text"))}`
+    : targetGroupLabel(priceFormatTargetGroup(level, selectedFormat));
+  await db.activityLog.create({ data: { type: "SCHEDULE", message: `[Level ${level.name}] Jadwal ${schedule.name} dimulai (${selectedFormat}) untuk ${categories.length} kategori; tujuan ${routeSummary}.`, meta: { scheduleId: schedule.id, levelId, routeSummary } } });
   for (const format of formats) {
     const result = await broadcastCategories(categories, settings, format);
     if (result.failed.length) await db.activityLog.create({ data: { type: "ERROR", message: `Jadwal ${schedule.name} (${format}) selesai dengan ${result.failed.length} kegagalan.` } });

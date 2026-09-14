@@ -1,5 +1,5 @@
 import { db } from "@/lib/mysql";
-import { telegramTargetChatIds } from "@/lib/telegram-targets";
+import { levelTargetChatIds, targetGroup, targetGroupLabel } from "@/lib/telegram-targets";
 
 type TelegramResponse = { ok?: boolean; description?: string };
 const TELEGRAM_MAX_LENGTH = 4096;
@@ -22,9 +22,10 @@ export async function sendCustomBroadcast(customBroadcast: any, settings: any) {
   const level = typeof customBroadcast?.levelId === "string"
     ? await db.priceLevel.findUnique({ where: { id: customBroadcast.levelId } })
     : null;
-  const targets = telegramTargetChatIds(level);
+  const destination = targetGroup(customBroadcast?.targetGroup);
+  const targets = levelTargetChatIds(level, destination);
   if (!settings?.botToken || !targets.length) {
-    throw new Error("Bot Token dan Target Chat ID harus dikonfigurasi.");
+    throw new Error(`Bot Token dan ${targetGroupLabel(destination)} untuk level ini harus dikonfigurasi.`);
   }
 
   const failures: string[] = [];
@@ -46,8 +47,8 @@ export async function sendCustomBroadcast(customBroadcast: any, settings: any) {
   await db.activityLog.create({
     data: {
       type: "BROADCAST_CUSTOM",
-      message: `BC custom ${customBroadcast.name} berhasil dikirim ke ${targets.length} target`,
-      meta: { customBroadcastId: customBroadcast.id },
+      message: `[Level ${level?.name ?? "-"}] BC custom ${customBroadcast.name} berhasil dikirim ke ${targetGroupLabel(destination)} (${targets.length} target)`,
+      meta: { customBroadcastId: customBroadcast.id, levelId: customBroadcast.levelId, targetGroup: destination, targetCount: targets.length },
     },
   });
   return customBroadcast.name;
