@@ -111,7 +111,7 @@ function isLastInBroadcast(product: Product) {
 
   return (
     // catches ml-tw, ml_tw, ml tw, mltw, ml-tw-01, etc.
-    /ml[\s_-]*tw/.test(code) ||
+    /(?:ml[\s_-]*tw|ff[\s_-]*bp)/.test(code) ||
     /membership|member|weekly|monthly|mingguan|bulanan|subscription|langganan|wdp|weekly[\s_-]*diamond[\s_-]*pass|diamond[\s_-]*pass/.test(code)
   );
 }
