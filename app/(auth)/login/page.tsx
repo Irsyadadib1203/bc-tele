@@ -41,10 +41,6 @@ export default async function LoginPage({
             Masuk ke dashboard →
           </button>
         </ConfirmedForm>
-        <div className="hint">
-          Akun awal: <b>admin</b> / <b>admin123</b>. Ubah password akun ini
-          lewat database setelah login.
-        </div>
       </section>
     </main>
   );
